@@ -21,7 +21,7 @@ function traduz(msg: string): string {
   if (/invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos';
   if (/email not confirmed/i.test(msg)) return 'Confirme o e-mail antes de entrar';
   if (/already registered/i.test(msg)) return 'Esse e-mail já tem conta';
-  if (/signups not allowed|signup is disabled/i.test(msg)) return 'Novos cadastros estão desligados';
+  if (/signups? (not allowed|is disabled|are disabled)/i.test(msg)) return 'Novos cadastros estão desligados no Supabase';
   if (/at least 6 characters/i.test(msg)) return 'A senha precisa ter pelo menos 6 caracteres';
   return msg;
 }
