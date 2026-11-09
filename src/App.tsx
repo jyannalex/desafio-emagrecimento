@@ -11,12 +11,8 @@ import Hoje from './pages/Hoje';
 import Ranking from './pages/Ranking';
 import Historico from './pages/Historico';
 import Peso from './pages/Peso';
+import Config from './pages/Config';
 
-const Placeholder = ({ t }: { t: string }) => (
-  <main className="page">
-    <h1>{t}</h1>
-  </main>
-);
 
 const Carregando = () => (
   <main className="page">
@@ -67,7 +63,7 @@ function Shell() {
     <AppCtx.Provider value={{ userId, challenge, reloadChallenge }}>
       {challenge === null ? (
         <Routes>
-          <Route path="/config" element={<Placeholder t="Configurar desafio" />} />
+          <Route path="/config" element={<Config />} />
           <Route path="*" element={<Navigate to="/config" replace />} />
         </Routes>
       ) : (
@@ -77,7 +73,7 @@ function Shell() {
             <Route path="/ranking" element={<Ranking />} />
             <Route path="/historico" element={<Historico />} />
             <Route path="/peso" element={<Peso />} />
-            <Route path="/config" element={<Placeholder t="Configurações" />} />
+            <Route path="/config" element={<Config />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <NavBar />
