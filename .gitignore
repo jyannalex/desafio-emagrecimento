@@ -5,3 +5,4 @@ dist
 .superpowers/
 supabase/.temp
 *.log
+tsconfig.tsbuildinfo
