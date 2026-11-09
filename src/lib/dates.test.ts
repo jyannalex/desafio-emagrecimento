@@ -25,7 +25,8 @@ test('isEditable', () => {
   const ch = { data_inicio: '2026-11-08', data_fim: '2027-02-05' };
   expect(isEditable('2026-11-10', '2026-11-10', ch)).toBe(true);
   expect(isEditable('2026-11-09', '2026-11-10', ch)).toBe(true);
-  expect(isEditable('2026-11-08', '2026-11-10', ch)).toBe(false); // anteontem
+  expect(isEditable('2026-11-08', '2026-11-10', ch)).toBe(true); // qualquer dia passado do desafio
+  expect(isEditable('2026-11-11', '2026-11-10', ch)).toBe(false); // futuro
   expect(isEditable('2026-11-07', '2026-11-08', ch)).toBe(false); // antes do início
   expect(isEditable('2027-02-06', '2027-02-06', ch)).toBe(false); // após o fim
 });

@@ -13,6 +13,7 @@ export type DailyLog = {
   nota_almoco: string | null;
   nota_lanche: string | null;
   nota_jantar: string | null;
+  nota_atividade: string | null;
   atividade: boolean;
   atividade_min: number;
   agua_ml: number;

@@ -11,7 +11,7 @@ vi.mock('../lib/dates', async (orig) => ({ ...(await orig<typeof import('../lib/
 const ch = { id: 1 as const, nome: 'Verão', data_inicio: '2026-11-05', data_fim: '2026-11-20' };
 const log = (user_id: string, dia: string, p: Partial<DailyLog>): DailyLog => ({
   user_id, dia, cafe: false, almoco: false, lanche: false, jantar: false,
-  nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null,
+  nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, nota_atividade: null,
   atividade: false, atividade_min: 0, agua_ml: 0, meta_agua_ml_do_dia: 2000, ...p,
 });
 

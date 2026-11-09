@@ -25,6 +25,7 @@ beforeAll(async () => {
   db = new PGlite();
   await db.exec(read('auth_stub.sql'));
   await db.exec(read('../migrations/0001_init.sql'));
+  await db.exec(read('../migrations/0002_qualquer_dia_e_nota_atividade.sql'));
   await db.exec(`
     insert into auth.users (id, email, raw_user_meta_data) values
       ('${A}', 'ana@x.com', '{"nome":"Ana"}'), ('${B}', 'beto@x.com', '{}');
@@ -48,8 +49,22 @@ test('A grava hoje e ontem', async () => {
   expect(r.rows[0]).toEqual({ n: 2 });
 });
 
-test('A não grava anteontem', async () => {
-  await expect(as(A, insLog(A, 'public.today_br() - 2'))).rejects.toThrow(/row-level security/);
+test('A grava um dia antigo dentro do desafio', async () => {
+  await as(A, insLog(A, 'public.today_br() - 7'));
+});
+
+test('A não grava amanhã', async () => {
+  await expect(as(A, insLog(A, 'public.today_br() + 1'))).rejects.toThrow(/row-level security/);
+});
+
+test('A não grava antes do início do desafio', async () => {
+  await expect(as(A, insLog(A, 'public.today_br() - 11'))).rejects.toThrow(/row-level security/);
+});
+
+test('A grava a nota da atividade', async () => {
+  await as(A, `update daily_logs set nota_atividade = 'caminhada' where user_id = '${A}' and dia = public.today_br() - 7`);
+  const r = await db.query<{ nota_atividade: string }>(`select nota_atividade from daily_logs where user_id = '${A}' and dia = public.today_br() - 7`);
+  expect(r.rows[0].nota_atividade).toBe('caminhada');
 });
 
 test('A não grava no nome de B', async () => {
@@ -72,9 +87,9 @@ test('A não altera o registro de B', async () => {
   expect(r.affectedRows).toBe(0);
 });
 
-test('A não altera dia travado já existente', async () => {
-  await db.exec(`insert into daily_logs (user_id, dia, meta_agua_ml_do_dia) values ('${A}', public.today_br() - 5, 2000)`);
-  const r = await as(A, `update daily_logs set cafe = true where user_id = '${A}' and dia = public.today_br() - 5`);
+test('A não altera dia fora do desafio já existente', async () => {
+  await db.exec(`insert into daily_logs (user_id, dia, meta_agua_ml_do_dia) values ('${A}', public.today_br() - 15, 2000)`);
+  const r = await as(A, `update daily_logs set cafe = true where user_id = '${A}' and dia = public.today_br() - 15`);
   expect(r.affectedRows).toBe(0);
 });
 
@@ -126,6 +141,6 @@ test('upsert do app atualiza registro existente de hoje', async () => {
   expect(r.rows[0].agua_ml).toBe(750);
 });
 
-test('upsert do app em dia travado já existente é recusado', async () => {
-  await expect(as(A, upsert(A, 'public.today_br() - 5'))).rejects.toThrow(/row-level security/);
+test('upsert do app em dia fora do desafio é recusado', async () => {
+  await expect(as(A, upsert(A, 'public.today_br() - 15'))).rejects.toThrow(/row-level security/);
 });

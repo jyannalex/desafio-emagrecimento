@@ -31,7 +31,8 @@ Site para um casal (2 pessoas) acompanhar um desafio de emagrecimento com prazo 
 ### 2.2 Período e edição
 
 - O desafio tem `data_inicio` e `data_fim`, inclusivas, definidas uma vez em Configurações.
-- Só é possível criar ou alterar o registro diário de **hoje ou ontem**, sempre no fuso `America/Sao_Paulo` e dentro do período do desafio. Dias anteriores ficam travados.
+- É possível criar ou alterar o registro diário de **qualquer dia entre o início do desafio e hoje** (fuso `America/Sao_Paulo`); o futuro fica travado. A tela Hoje tem seletor de data (setas + calendário) limitado a esse intervalo. *(Alterado em 2026-11-09 a pedido do usuário; antes era só hoje/ontem. Migração `0002`.)*
+- A atividade tem um campo de texto opcional `nota_atividade` (o que foi feito).
 - O peso pode ser lançado em qualquer data, porque não vale ponto.
 
 ### 2.3 Ranking

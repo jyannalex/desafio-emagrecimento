@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ToastProvider } from '../components/Toast';
@@ -39,8 +39,9 @@ test('mostra as tarefas do dia e 0/6', async () => {
   }
   expect(screen.getByText('Água')).toBeInTheDocument();
   expect(screen.getByRole('img', { name: '0 de 6 pontos' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Hoje' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Ontem' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Dia anterior' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Próximo dia' })).toBeDisabled();
+  expect(screen.getByLabelText('Escolher data')).toHaveValue(hoje);
 });
 
 test('marcar café soma 1 ponto e grava', async () => {
@@ -73,12 +74,49 @@ test('nota da refeição grava ao sair do campo', async () => {
   );
 });
 
-test('ontem fora do período fica travado', async () => {
+test('não volta antes do início do desafio nem passa de hoje', async () => {
   renderHoje({ ...ativo, data_inicio: hoje });
-  await userEvent.click(await screen.findByRole('button', { name: 'Ontem' }));
-  expect(await screen.findByText('Fora do período do desafio')).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByLabelText('Café da manhã')).toBeDisabled());
-  expect(screen.getByRole('button', { name: '+250 ml' })).toBeDisabled();
+  expect(await screen.findByRole('button', { name: 'Dia anterior' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Próximo dia' })).toBeDisabled();
+  const data = screen.getByLabelText('Escolher data');
+  expect(data).toHaveAttribute('min', hoje);
+  expect(data).toHaveAttribute('max', hoje);
+});
+
+test('volta um dia e depois escolhe uma data antiga, ambos editáveis', async () => {
+  renderHoje(ativo);
+  await userEvent.click(await screen.findByRole('button', { name: 'Dia anterior' }));
+  expect(await screen.findByRole('heading', { name: 'Ontem' })).toBeInTheDocument();
+  await waitFor(() => expect(repo.getLogs).toHaveBeenCalledWith(addDays(hoje, -1), addDays(hoje, -1)));
+
+  const antigo = addDays(hoje, -10);
+  fireEvent.change(screen.getByLabelText('Escolher data'), { target: { value: antigo } });
+  await waitFor(() => expect(repo.getLogs).toHaveBeenCalledWith(antigo, antigo));
+  const cafe = screen.getByLabelText('Café da manhã');
+  await waitFor(() => expect(cafe).not.toBeDisabled());
+  await userEvent.click(cafe);
+  await waitFor(() => expect(repo.upsertLog).toHaveBeenCalledWith(expect.objectContaining({ dia: antigo, cafe: true })));
+
+  await userEvent.click(screen.getByRole('button', { name: 'Voltar para hoje' }));
+  expect(await screen.findByRole('heading', { name: 'Hoje' })).toBeInTheDocument();
+});
+
+test('data fora do período digitada é ignorada', async () => {
+  renderHoje(ativo);
+  const data = await screen.findByLabelText('Escolher data');
+  fireEvent.change(data, { target: { value: addDays(hoje, 3) } });
+  expect(screen.getByRole('heading', { name: 'Hoje' })).toBeInTheDocument();
+});
+
+test('nota da atividade grava ao sair do campo', async () => {
+  renderHoje(ativo);
+  const nota = await screen.findByLabelText('Qual atividade você fez');
+  await waitFor(() => expect(nota).not.toBeDisabled());
+  await userEvent.type(nota, 'caminhada no parque');
+  await userEvent.tab();
+  await waitFor(() =>
+    expect(repo.upsertLog).toHaveBeenCalledWith(expect.objectContaining({ nota_atividade: 'caminhada no parque' })),
+  );
 });
 
 test('atividade soma minutos com botões e pontua só com 1 hora', async () => {

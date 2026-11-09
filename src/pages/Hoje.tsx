@@ -3,7 +3,7 @@ import { useApp } from '../data/AppContext';
 import { getProfiles } from '../data/repo';
 import { useDailyLog } from '../hooks/useDailyLog';
 import { useToday } from '../hooks/useToday';
-import { addDays, formatBR, formatLong, isEditable } from '../lib/dates';
+import { addDays, formatBR, formatLong, formatWeekday, isEditable } from '../lib/dates';
 import { playerSlot, playerSoftVar, playerVar } from '../lib/players';
 import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
 import type { Challenge } from '../types';
@@ -21,7 +21,7 @@ const MEALS: { key: MealKey; note: NoteKey; label: string; noteLabel: string }[]
 export default function Hoje() {
   const { userId, challenge } = useApp();
   const today = useToday();
-  const [qual, setQual] = useState<'hoje' | 'ontem'>('hoje');
+  const [escolhido, setEscolhido] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<{ meta: number; slot: 1 | 2 } | null>(null);
   const [erro, setErro] = useState(false);
 
@@ -40,18 +40,40 @@ export default function Hoje() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  const dia = qual === 'hoje' ? today : addDays(today, -1);
+  // dias que dá para abrir: do início do desafio até hoje (ou até o fim, se já acabou)
+  const min = challenge?.data_inicio ?? today;
+  const max = challenge && challenge.data_fim < today ? challenge.data_fim : today;
+  const semJanela = max < min; // desafio ainda não começou
+  const dia = semJanela ? today : escolhido && escolhido >= min && escolhido <= max ? escolhido : max;
+  const ir = (d: string) => {
+    if (d >= min && d <= max) setEscolhido(d === today ? null : d);
+  };
   const cor = perfil ? ({ '--me': playerVar(perfil.slot), '--me-soft': playerSoftVar(perfil.slot) } as CSSProperties) : undefined;
 
   return (
     <main className="page" style={cor}>
-      <div className="seg" role="group" aria-label="Qual dia">
-        <button aria-pressed={qual === 'hoje'} onClick={() => setQual('hoje')}>
-          Hoje
+      <div className="date-nav">
+        <button className="icon-btn" aria-label="Dia anterior" disabled={semJanela || dia <= min} onClick={() => ir(addDays(dia, -1))}>
+          <Seta dir="esq" />
         </button>
-        <button aria-pressed={qual === 'ontem'} onClick={() => setQual('ontem')}>
-          Ontem
+        <input
+          className="date-input"
+          type="date"
+          aria-label="Escolher data"
+          value={dia}
+          min={min}
+          max={semJanela ? min : max}
+          disabled={semJanela}
+          onChange={(e) => e.target.value && ir(e.target.value)}
+        />
+        <button className="icon-btn" aria-label="Próximo dia" disabled={semJanela || dia >= max} onClick={() => ir(addDays(dia, 1))}>
+          <Seta dir="dir" />
         </button>
+        {dia !== today && (
+          <button className="btn small-btn" aria-label="Voltar para hoje" onClick={() => setEscolhido(null)}>
+            Hoje
+          </button>
+        )}
       </div>
       {erro && (
         <div className="notice danger">
@@ -64,6 +86,21 @@ export default function Hoje() {
       {perfil && challenge && <Dia key={dia} userId={userId} dia={dia} today={today} meta={perfil.meta} challenge={challenge} />}
     </main>
   );
+}
+
+function Seta({ dir }: { dir: 'esq' | 'dir' }) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={dir === 'esq' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
+    </svg>
+  );
+}
+
+function tituloDia(dia: string, today: string) {
+  if (dia === today) return 'Hoje';
+  if (dia === addDays(today, -1)) return 'Ontem';
+  const w = formatWeekday(dia);
+  return w.charAt(0).toUpperCase() + w.slice(1);
 }
 
 function motivoTrava(dia: string, today: string, ch: Challenge): string {
@@ -123,7 +160,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
     <>
       <header className="day-head">
         <div className="grow">
-          <h1>{dia === today ? 'Hoje' : 'Ontem'}</h1>
+          <h1>{tituloDia(dia, today)}</h1>
           <div className="date">{formatLong(dia)}</div>
           {editable && !loading && <p className="muted small" style={{ margin: '8px 0 0' }}>{resumo(pts)}</p>}
         </div>
@@ -192,6 +229,15 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
             +1 h
           </button>
         </div>
+        <div style={{ marginTop: 10 }}>
+          <Nota
+            label="Qual atividade você fez"
+            placeholder="O que vocês fizeram? Ex.: caminhada, musculação"
+            value={log.nota_atividade}
+            disabled={off}
+            onSave={(v) => update({ nota_atividade: v })}
+          />
+        </div>
       </section>
 
       <section className="panel">
@@ -230,14 +276,26 @@ function useSynced<T>(external: T) {
   return { v, setV, focused };
 }
 
-function Nota({ label, value, disabled, onSave }: { label: string; value: string | null; disabled: boolean; onSave: (v: string | null) => void }) {
+function Nota({
+  label,
+  value,
+  disabled,
+  onSave,
+  placeholder = 'Anotar o que comeu',
+}: {
+  label: string;
+  value: string | null;
+  disabled: boolean;
+  onSave: (v: string | null) => void;
+  placeholder?: string;
+}) {
   const { v, setV, focused } = useSynced(value ?? '');
   return (
     <input
       className="note"
       type="text"
       aria-label={label}
-      placeholder="Anotar o que comeu"
+      placeholder={placeholder}
       value={v}
       disabled={disabled}
       maxLength={500}

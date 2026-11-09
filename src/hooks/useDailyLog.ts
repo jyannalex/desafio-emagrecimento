@@ -16,6 +16,7 @@ export function emptyLog(userId: string, dia: string, meta: number): DailyLog {
     nota_almoco: null,
     nota_lanche: null,
     nota_jantar: null,
+    nota_atividade: null,
     atividade: false,
     atividade_min: 0,
     agua_ml: 0,

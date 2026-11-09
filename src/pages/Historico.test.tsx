@@ -12,7 +12,7 @@ vi.mock('../lib/dates', async (orig) => ({ ...(await orig<typeof import('../lib/
 const ch = { id: 1 as const, nome: 'X', data_inicio: '2026-11-05', data_fim: '2026-11-20' };
 const log = (user_id: string, dia: string, p: Partial<DailyLog>): DailyLog => ({
   user_id, dia, cafe: false, almoco: false, lanche: false, jantar: false,
-  nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null,
+  nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, nota_atividade: null,
   atividade: false, atividade_min: 0, agua_ml: 0, meta_agua_ml_do_dia: 2000, ...p,
 });
 
@@ -31,7 +31,7 @@ beforeEach(() => {
     { id: 'b', nome: 'Beto', meta_agua_ml: 2000 },
   ]);
   vi.mocked(repo.getLogs).mockResolvedValue([
-    log('a', '2026-11-06', { almoco: true, nota_almoco: 'frango e salada', atividade: true, atividade_min: 40, agua_ml: 2250 }),
+    log('a', '2026-11-06', { almoco: true, nota_almoco: 'frango e salada', atividade: true, atividade_min: 40, nota_atividade: 'pedalada', agua_ml: 2250 }),
     log('b', '2026-11-07', { cafe: true }),
   ]);
 });
@@ -52,6 +52,7 @@ test('tocar no dia mostra os detalhes com notas', async () => {
   const det = screen.getByTestId('detalhe-2026-11-06');
   expect(within(det).getByText('frango e salada')).toBeInTheDocument();
   expect(within(det).getByText(/40 min/)).toBeInTheDocument();
+  expect(within(det).getByText('pedalada')).toBeInTheDocument();
   expect(within(det).getByText(/2250 \/ 2000 ml/)).toBeInTheDocument();
 });
 

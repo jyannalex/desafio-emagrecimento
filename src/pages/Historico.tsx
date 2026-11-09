@@ -150,7 +150,10 @@ function Detalhe({ nome, cor, log }: { nome: string; cor: string; log?: DailyLog
               {log[r.nota] && <span className="nota">{log[r.nota]}</span>}
             </Item>
           ))}
-          <Item ok={log.atividade_min >= ATIVIDADE_META_MIN}>Atividade física · {log.atividade_min} min</Item>
+          <Item ok={log.atividade_min >= ATIVIDADE_META_MIN}>
+            Atividade física · {log.atividade_min} min
+            {log.nota_atividade && <span className="nota">{log.nota_atividade}</span>}
+          </Item>
           <Item ok={log.agua_ml >= log.meta_agua_ml_do_dia}>
             Água · {log.agua_ml} / {log.meta_agua_ml_do_dia} ml
           </Item>

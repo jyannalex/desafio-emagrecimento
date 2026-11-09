@@ -46,8 +46,7 @@ export function isEditable(
   today: string,
   ch: Pick<Challenge, 'data_inicio' | 'data_fim'>,
 ): boolean {
-  const recent = day === today || day === addDays(today, -1);
-  return recent && day >= ch.data_inicio && day <= ch.data_fim;
+  return day <= today && day >= ch.data_inicio && day <= ch.data_fim;
 }
 
 /** 'YYYY-MM-DD' -> 'DD/MM/YYYY' */

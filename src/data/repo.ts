@@ -25,7 +25,7 @@ export async function saveChallenge(c: Omit<Challenge, 'id'>): Promise<void> {
 }
 
 const LOG_COLS =
-  'user_id, dia, cafe, almoco, lanche, jantar, nota_cafe, nota_almoco, nota_lanche, nota_jantar, atividade, atividade_min, agua_ml, meta_agua_ml_do_dia';
+  'user_id, dia, cafe, almoco, lanche, jantar, nota_cafe, nota_almoco, nota_lanche, nota_jantar, nota_atividade, atividade, atividade_min, agua_ml, meta_agua_ml_do_dia';
 
 export async function getLogs(from?: string, to?: string): Promise<DailyLog[]> {
   let q = db().from('daily_logs').select(LOG_COLS);

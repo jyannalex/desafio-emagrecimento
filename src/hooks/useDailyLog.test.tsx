@@ -55,8 +55,8 @@ test('primeiro toque −250 cria log com agua_ml 0 e meta atual', async () => {
 
 test('log existente mantém a própria meta do dia', async () => {
   vi.mocked(repo.getLogs).mockResolvedValue([
-    { user_id: 'u1', dia: '2026-11-09', cafe: true, almoco: false, lanche: false, jantar: false, nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, atividade: false, atividade_min: 0, agua_ml: 500, meta_agua_ml_do_dia: 3000 },
-    { user_id: 'outro', dia: '2026-11-09', cafe: false, almoco: true, lanche: false, jantar: false, nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, atividade: false, atividade_min: 0, agua_ml: 0, meta_agua_ml_do_dia: 2000 },
+    { user_id: 'u1', dia: '2026-11-09', cafe: true, almoco: false, lanche: false, jantar: false, nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, nota_atividade: null, atividade: false, atividade_min: 0, agua_ml: 500, meta_agua_ml_do_dia: 3000 },
+    { user_id: 'outro', dia: '2026-11-09', cafe: false, almoco: true, lanche: false, jantar: false, nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, nota_atividade: null, atividade: false, atividade_min: 0, agua_ml: 0, meta_agua_ml_do_dia: 2000 },
   ]);
   const { result } = await setup();
   expect(result.current.log.cafe).toBe(true);
