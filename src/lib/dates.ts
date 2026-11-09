@@ -47,3 +47,9 @@ export function isEditable(
   const recent = day === today || day === addDays(today, -1);
   return recent && day >= ch.data_inicio && day <= ch.data_fim;
 }
+
+/** 'YYYY-MM-DD' -> 'DD/MM/YYYY' */
+export function formatBR(day: string): string {
+  const [y, m, d] = day.split('-');
+  return `${d}/${m}/${y}`;
+}

@@ -7,6 +7,7 @@ import type { Challenge } from './types';
 import NavBar from './components/NavBar';
 import { ToastProvider } from './components/Toast';
 import Login from './pages/Login';
+import Hoje from './pages/Hoje';
 
 const Placeholder = ({ t }: { t: string }) => (
   <main className="page">
@@ -69,7 +70,7 @@ function Shell() {
       ) : (
         <>
           <Routes>
-            <Route path="/" element={<Placeholder t="Hoje" />} />
+            <Route path="/" element={<Hoje />} />
             <Route path="/ranking" element={<Placeholder t="Ranking" />} />
             <Route path="/historico" element={<Placeholder t="Histórico" />} />
             <Route path="/peso" element={<Placeholder t="Peso" />} />

@@ -1,4 +1,4 @@
-import { addDays, daysInclusive, isEditable, todayBR, weekStart } from './dates';
+import { addDays, daysInclusive, formatBR, isEditable, todayBR, weekStart } from './dates';
 
 test('todayBR respeita fuso', () => {
   expect(todayBR(new Date('2026-11-09T02:30:00Z'))).toBe('2026-11-08'); // 23:30 BRT
@@ -28,4 +28,8 @@ test('isEditable', () => {
   expect(isEditable('2026-11-08', '2026-11-10', ch)).toBe(false); // anteontem
   expect(isEditable('2026-11-07', '2026-11-08', ch)).toBe(false); // antes do início
   expect(isEditable('2027-02-06', '2027-02-06', ch)).toBe(false); // após o fim
+});
+
+test('formatBR', () => {
+  expect(formatBR('2026-11-09')).toBe('09/11/2026');
 });
