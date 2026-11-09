@@ -29,6 +29,13 @@ Site para um casal (2 pessoas) acompanhar um desafio de emagrecimento com prazo 
 - A atividade é somada por botões (−10, +10 min, +30 min, +1 h), igual à água. O ponto vem só dos minutos: **60 ou mais no dia**. A coluna `atividade` fica sincronizada (`atividade_min >= 60`) mas não é usada no cálculo. *(Alterado em 2026-11-09 a pedido do usuário; antes o ponto vinha de um ✅.)*
 - Cada pessoa define a própria meta de água em ml (padrão 2000). Na primeira gravação do dia, a meta vigente é copiada para o registro do dia (`meta_agua_ml_do_dia`). Mudar a meta depois não altera os dias já registrados.
 
+### 2.1.1 Fotos (opcional)
+
+- Café, almoço, lanche, jantar e atividade aceitam **uma foto cada** por dia. Não vale ponto.
+- A foto é reduzida no aparelho (JPEG, lado maior 1280 px, ~150–250 KB) e vai para o Storage do Supabase (bucket privado , limite 2 MB, pasta = id da pessoa). A tabela  guarda caminho e tamanho. Os dois veem as fotos; cada um envia, troca e apaga só as suas.
+- Em Configurações, cada um vê quantas fotos tem e quanto ocupam, e pode apagar as próprias até uma data. Registros e pontos não mudam.
+- Cada pessoa escolhe a própria cor (tangerina, mirtilo, framboesa, menta, uva, turquesa). A cor do outro fica bloqueada. *(Migração , 2026-11-09.)*
+
 ### 2.2 Período e edição
 
 - O desafio tem `data_inicio` e `data_fim`, inclusivas, definidas uma vez em Configurações.
@@ -152,4 +159,4 @@ Se o desafio ainda não foi configurado, o app leva para Configurações.
 
 ## 9. Fora de escopo
 
-Modo offline/sincronização, fotos, notificações, contestação de pontos, mais de 2 participantes, calorias e cardápios, pontuação por peso.
+Modo offline/sincronização, notificações, contestação de pontos, mais de 2 participantes, calorias e cardápios, pontuação por peso.

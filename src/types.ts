@@ -1,4 +1,10 @@
-export type Profile = { id: string; nome: string; meta_agua_ml: number };
+export type CorId = 'tangerina' | 'mirtilo' | 'framboesa' | 'menta' | 'uva' | 'turquesa';
+
+export type Profile = { id: string; nome: string; meta_agua_ml: number; cor?: CorId | null };
+
+export type Tarefa = 'cafe' | 'almoco' | 'lanche' | 'jantar' | 'atividade';
+
+export type Photo = { id: number; user_id: string; dia: string; tarefa: Tarefa; path: string; bytes: number };
 
 export type Challenge = { id: 1; nome: string; data_inicio: string; data_fim: string };
 

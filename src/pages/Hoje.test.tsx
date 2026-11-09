@@ -6,9 +6,11 @@ import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
 import { addDays, todayBR } from '../lib/dates';
 import type { Challenge, DailyLog } from '../types';
+import { compressImage } from '../lib/imagem';
 import Hoje from './Hoje';
 
 vi.mock('../data/repo');
+vi.mock('../lib/imagem', () => ({ compressImage: vi.fn(async () => new Blob(['reduzida'], { type: 'image/jpeg' })) }));
 
 const hoje = todayBR();
 
@@ -28,6 +30,9 @@ beforeEach(() => {
   vi.mocked(repo.getProfiles).mockResolvedValue([{ id: 'u1', nome: 'Ana', meta_agua_ml: 2000 }]);
   vi.mocked(repo.getLogs).mockResolvedValue([]);
   vi.mocked(repo.upsertLog).mockImplementation(async (l: DailyLog) => l);
+  vi.mocked(repo.getPhotos).mockResolvedValue([]);
+  vi.mocked(repo.photoUrls).mockResolvedValue({});
+  URL.createObjectURL = vi.fn(() => 'blob:previa');
 });
 
 const ativo = { id: 1 as const, nome: 'X', data_inicio: addDays(hoje, -30), data_fim: addDays(hoje, 30) };
@@ -147,4 +152,47 @@ test('lanche grava mas não vale ponto', async () => {
   expect(screen.getByRole('img', { name: '0 de 5 pontos' })).toBeInTheDocument();
   expect(screen.getByText('0 de 3 na dieta')).toBeInTheDocument();
   await waitFor(() => expect(repo.upsertLog).toHaveBeenCalledWith(expect.objectContaining({ lanche: true })));
+});
+
+const fotoCafe = { id: 9, user_id: 'u1', dia: hoje, tarefa: 'cafe' as const, path: `u1/${hoje}/cafe-1.jpg`, bytes: 1000 };
+
+test('foto do almoço: reduz, envia e mostra a miniatura', async () => {
+  vi.mocked(repo.uploadPhoto).mockResolvedValue({ ...fotoCafe, id: 10, tarefa: 'almoco', path: `u1/${hoje}/almoco-2.jpg` });
+  renderHoje(ativo);
+  const escolher = await screen.findByLabelText('Adicionar foto do almoço');
+  await waitFor(() => expect(escolher).not.toBeDisabled());
+  const arquivo = new File(['x'], 'almoco.jpg', { type: 'image/jpeg' });
+  await userEvent.upload(escolher, arquivo);
+  await waitFor(() => expect(repo.uploadPhoto).toHaveBeenCalledWith('u1', hoje, 'almoco', expect.any(Blob)));
+  expect(compressImage).toHaveBeenCalledWith(arquivo);
+  expect(await screen.findByRole('button', { name: 'Ver foto do almoço' })).toBeInTheDocument();
+});
+
+test('tem foto da atividade também', async () => {
+  renderHoje(ativo);
+  expect(await screen.findByLabelText('Adicionar foto da atividade')).toBeInTheDocument();
+});
+
+test('abre a foto e remove', async () => {
+  vi.mocked(repo.getPhotos).mockResolvedValue([fotoCafe]);
+  vi.mocked(repo.photoUrls).mockResolvedValue({ [fotoCafe.path]: 'https://x/cafe.jpg' });
+  vi.mocked(repo.deletePhoto).mockResolvedValue();
+  renderHoje(ativo);
+  await userEvent.click(await screen.findByRole('button', { name: 'Ver foto do café da manhã' }));
+  const dialogo = screen.getByRole('dialog', { name: 'Foto do café da manhã' });
+  expect(dialogo.querySelector('img')).toHaveAttribute('src', 'https://x/cafe.jpg');
+  await userEvent.click(screen.getByRole('button', { name: 'Remover foto' }));
+  await waitFor(() => expect(repo.deletePhoto).toHaveBeenCalledWith(fotoCafe));
+  expect(await screen.findByLabelText('Adicionar foto do café da manhã')).toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('falha ao enviar foto avisa', async () => {
+  vi.mocked(repo.uploadPhoto).mockRejectedValue(new Error('rede'));
+  renderHoje(ativo);
+  const escolher = await screen.findByLabelText('Adicionar foto do jantar');
+  await waitFor(() => expect(escolher).not.toBeDisabled());
+  await userEvent.upload(escolher, new File(['x'], 'j.jpg', { type: 'image/jpeg' }));
+  expect(await screen.findByText('A foto não foi enviada, tente de novo')).toBeInTheDocument();
+  expect(screen.getByLabelText('Adicionar foto do jantar')).toBeInTheDocument();
 });

@@ -3,7 +3,7 @@ import { useApp } from '../data/AppContext';
 import { getLogs, getProfiles } from '../data/repo';
 import { useToday } from '../hooks/useToday';
 import { formatShort } from '../lib/dates';
-import { playerSlot, playerVar } from '../lib/players';
+import { playerColors, playerSlot, playerVar } from '../lib/players';
 import { standing, winner, type Score, type Standing } from '../lib/scoring';
 import type { DailyLog, Profile } from '../types';
 
@@ -64,11 +64,12 @@ export default function Ranking() {
     );
   }
 
+  const cores = playerColors(dados.profiles);
   const lados: Lado[] = [...dados.profiles]
     .sort((x, y) => playerSlot(dados.profiles, x.id) - playerSlot(dados.profiles, y.id))
     .map((p) => ({
       p,
-      cor: playerVar(playerSlot(dados.profiles, p.id)),
+      cor: playerVar(cores.get(p.id)!),
       s: standing(dados.logs.filter((l) => l.user_id === p.id), challenge, today),
     }));
   const [a, b] = lados;

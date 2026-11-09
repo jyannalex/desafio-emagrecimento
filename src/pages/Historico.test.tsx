@@ -34,6 +34,8 @@ beforeEach(() => {
     log('a', '2026-11-06', { almoco: true, nota_almoco: 'frango e salada', atividade: true, atividade_min: 40, nota_atividade: 'pedalada', agua_ml: 2250 }),
     log('b', '2026-11-07', { cafe: true }),
   ]);
+  vi.mocked(repo.getPhotos).mockResolvedValue([]);
+  vi.mocked(repo.photoUrls).mockResolvedValue({});
 });
 
 test('lista os dias do mais recente ao início com pontos de cada um', async () => {
@@ -66,4 +68,17 @@ test('depois do fim lista só até o fim', async () => {
 test('antes do início avisa', async () => {
   renderHist('2026-11-01');
   expect(await screen.findByText('O desafio ainda não começou.')).toBeInTheDocument();
+});
+
+test('no detalhe do dia aparecem as fotos de cada um', async () => {
+  const foto = { id: 3, user_id: 'b', dia: '2026-11-07', tarefa: 'cafe' as const, path: 'b/2026-11-07/cafe-1.jpg', bytes: 900 };
+  vi.mocked(repo.getPhotos).mockResolvedValue([foto]);
+  vi.mocked(repo.photoUrls).mockResolvedValue({ [foto.path]: 'https://x/cafe-beto.jpg' });
+  renderHist('2026-11-07');
+  await userEvent.click(await screen.findByRole('button', { name: /^Hoje/ }));
+  expect(repo.getPhotos).toHaveBeenCalledWith('2026-11-07', '2026-11-07');
+  await userEvent.click(await screen.findByRole('button', { name: 'Ver foto do café da manhã de Beto' }));
+  const dlg = screen.getByRole('dialog', { name: 'Foto do café da manhã de Beto' });
+  expect(within(dlg).getByRole('img')).toHaveAttribute('src', 'https://x/cafe-beto.jpg');
+  expect(within(dlg).queryByRole('button', { name: 'Remover foto' })).not.toBeInTheDocument();
 });

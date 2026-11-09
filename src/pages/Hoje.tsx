@@ -1,35 +1,37 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useApp } from '../data/AppContext';
 import { getProfiles } from '../data/repo';
+import { FotoTarefa } from '../components/Fotos';
 import { useDailyLog } from '../hooks/useDailyLog';
+import { useFotos } from '../hooks/useFotos';
 import { useToday } from '../hooks/useToday';
 import { addDays, formatBR, formatLong, formatWeekday, isEditable } from '../lib/dates';
-import { playerSlot, playerSoftVar, playerVar } from '../lib/players';
+import { playerColors, playerSoftVar, playerVar } from '../lib/players';
 import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
-import type { Challenge } from '../types';
+import type { Challenge, CorId } from '../types';
 
 type MealKey = 'cafe' | 'almoco' | 'lanche' | 'jantar';
 type NoteKey = 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar';
 
-const MEALS: { key: MealKey; note: NoteKey; label: string; noteLabel: string; semPonto?: boolean }[] = [
-  { key: 'cafe', note: 'nota_cafe', label: 'Café da manhã', noteLabel: 'O que comeu no café da manhã' },
-  { key: 'almoco', note: 'nota_almoco', label: 'Almoço', noteLabel: 'O que comeu no almoço' },
-  { key: 'lanche', note: 'nota_lanche', label: 'Lanche', noteLabel: 'O que comeu no lanche', semPonto: true },
-  { key: 'jantar', note: 'nota_jantar', label: 'Jantar', noteLabel: 'O que comeu no jantar' },
+const MEALS: { key: MealKey; note: NoteKey; label: string; noteLabel: string; foto: string; semPonto?: boolean }[] = [
+  { key: 'cafe', note: 'nota_cafe', label: 'Café da manhã', noteLabel: 'O que comeu no café da manhã', foto: 'do café da manhã' },
+  { key: 'almoco', note: 'nota_almoco', label: 'Almoço', noteLabel: 'O que comeu no almoço', foto: 'do almoço' },
+  { key: 'lanche', note: 'nota_lanche', label: 'Lanche', noteLabel: 'O que comeu no lanche', foto: 'do lanche', semPonto: true },
+  { key: 'jantar', note: 'nota_jantar', label: 'Jantar', noteLabel: 'O que comeu no jantar', foto: 'do jantar' },
 ];
 
 export default function Hoje() {
   const { userId, challenge } = useApp();
   const today = useToday();
   const [escolhido, setEscolhido] = useState<string | null>(null);
-  const [perfil, setPerfil] = useState<{ meta: number; slot: 1 | 2 } | null>(null);
+  const [perfil, setPerfil] = useState<{ meta: number; cor: CorId } | null>(null);
   const [erro, setErro] = useState(false);
 
   async function carregarPerfil() {
     setErro(false);
     try {
       const ps = await getProfiles();
-      setPerfil({ meta: ps.find((p) => p.id === userId)?.meta_agua_ml ?? 2000, slot: playerSlot(ps, userId) });
+      setPerfil({ meta: ps.find((p) => p.id === userId)?.meta_agua_ml ?? 2000, cor: playerColors(ps).get(userId) ?? 'tangerina' });
     } catch {
       setErro(true);
     }
@@ -48,7 +50,7 @@ export default function Hoje() {
   const ir = (d: string) => {
     if (d >= min && d <= max) setEscolhido(d === today ? null : d);
   };
-  const cor = perfil ? ({ '--me': playerVar(perfil.slot), '--me-soft': playerSoftVar(perfil.slot) } as CSSProperties) : undefined;
+  const cor = perfil ? ({ '--me': playerVar(perfil.cor), '--me-soft': playerSoftVar(perfil.cor) } as CSSProperties) : undefined;
 
   return (
     <main className="page" style={cor}>
@@ -149,6 +151,18 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
   const editable = isEditable(dia, today, challenge);
   const { log, loading, loadError, reload, update, addAgua, addAtividade } = useDailyLog(userId, dia, meta, editable);
   const off = !editable || loading || loadError;
+  const fotos = useFotos(userId, dia);
+  const foto = (t: MealKey | 'atividade', rotulo: string) => (
+    <FotoTarefa
+      rotulo={rotulo}
+      temFoto={!!fotos.fotos[t]}
+      url={fotos.urlDe(t)}
+      ocupado={!!fotos.ocupado[t]}
+      podeEditar={editable && fotos.carregado}
+      onEnviar={(f) => fotos.enviar(t, f)}
+      onRemover={() => fotos.remover(t)}
+    />
+  );
   const pts = dayPoints(log);
   const pontuaveis = MEALS.filter((m) => !m.semPonto);
   const refeicoes = pontuaveis.filter((m) => log[m.key]).length;
@@ -198,8 +212,9 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
                 <span className="task-name">{m.label}</span>
                 {m.semPonto && <span className="tag">sem ponto</span>}
               </label>
-              <div className="task-sub">
+              <div className="task-sub note-row">
                 <Nota label={m.noteLabel} value={log[m.note]} disabled={off} onSave={(v) => update({ [m.note]: v })} />
+                {foto(m.key, m.foto)}
               </div>
             </li>
           ))}
@@ -231,7 +246,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
             +1 h
           </button>
         </div>
-        <div style={{ marginTop: 10 }}>
+        <div className="note-row" style={{ marginTop: 10 }}>
           <Nota
             label="Qual atividade você fez"
             placeholder="O que vocês fizeram? Ex.: caminhada, musculação"
@@ -239,6 +254,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
             disabled={off}
             onSave={(v) => update({ nota_atividade: v })}
           />
+          {foto('atividade', 'da atividade')}
         </div>
       </section>
 

@@ -1,9 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from '../data/auth';
 import { useApp } from '../data/AppContext';
-import { getProfiles, saveChallenge, updateProfile } from '../data/repo';
+import { deletePhotosUntil, getProfiles, myPhotoStats, saveChallenge, updateProfile } from '../data/repo';
+import { useToday } from '../hooks/useToday';
+import { CORES, playerColors, playerVar } from '../lib/players';
 import { getThemePref, setThemePref, type ThemePref } from '../lib/theme';
+import type { CorId, Profile } from '../types';
 
 type Msg = { erro: boolean; texto: string } | null;
 
@@ -34,9 +37,30 @@ export default function Config() {
 
   const [tema, setTema] = useState<ThemePref>(getThemePref);
 
+  const [perfis, setPerfis] = useState<Profile[]>([]);
+  const [msgCor, setMsgCor] = useState<Msg>(null);
+
+  const today = useToday();
+  const [fotos, setFotos] = useState<{ count: number; bytes: number } | null>(null);
+  const [ateDia, setAteDia] = useState(today);
+  const [apagando, setApagando] = useState(false);
+  const [msgFotos, setMsgFotos] = useState<Msg>(null);
+
+  function carregarFotos() {
+    myPhotoStats(userId)
+      .then(setFotos)
+      .catch(() => setMsgFotos({ erro: true, texto: 'Não foi possível ver suas fotos' }));
+  }
+
+  useEffect(() => {
+    if (challenge) carregarFotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, !!challenge]);
+
   useEffect(() => {
     getProfiles()
       .then((ps) => {
+        setPerfis(ps);
         const eu = ps.find((p) => p.id === userId);
         if (eu) {
           setNome(eu.nome);
@@ -50,6 +74,39 @@ export default function Config() {
   function escolherTema(t: ThemePref) {
     setTema(t);
     setThemePref(t);
+  }
+
+  const cores = playerColors(perfis);
+  const minhaCor = cores.get(userId);
+  const outro = perfis.find((p) => p.id !== userId);
+  const corDoOutro = outro ? cores.get(outro.id) : undefined;
+
+  async function escolherCor(cor: CorId) {
+    const antes = perfis;
+    setMsgCor(null);
+    setPerfis((ps) => ps.map((p) => (p.id === userId ? { ...p, cor } : p)));
+    try {
+      await updateProfile(userId, { cor });
+    } catch {
+      setPerfis(antes);
+      setMsgCor({ erro: true, texto: 'Não salvou, tente de novo' });
+    }
+  }
+
+  async function apagarFotos() {
+    if (!ateDia) return;
+    if (!window.confirm('Apagar todas as suas fotos até ' + ateDia.split('-').reverse().join('/') + '? Não dá para desfazer.')) return;
+    setApagando(true);
+    setMsgFotos(null);
+    try {
+      const n = await deletePhotosUntil(userId, ateDia);
+      setMsgFotos({ erro: false, texto: n === 1 ? '1 foto apagada' : n + ' fotos apagadas' });
+      carregarFotos();
+    } catch {
+      setMsgFotos({ erro: true, texto: 'Não apagou, tente de novo' });
+    } finally {
+      setApagando(false);
+    }
   }
 
   async function salvarDesafio(e: FormEvent) {
@@ -147,6 +204,56 @@ export default function Config() {
         </form>
       )}
 
+      {challenge && (
+        <section className="panel">
+          <h2>Minha cor</h2>
+          <div className="swatches" role="group" aria-label="Minha cor">
+            {CORES.map((c) => {
+              const doOutro = c.id === corDoOutro;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="swatch"
+                  style={{ '--sw': playerVar(c.id) } as CSSProperties}
+                  aria-pressed={minhaCor === c.id}
+                  aria-label={doOutro ? c.nome + ' (cor de ' + outro!.nome + ')' : c.nome}
+                  disabled={doOutro || !perfilCarregado}
+                  onClick={() => escolherCor(c.id)}
+                >
+                  <i aria-hidden />
+                  <span>{c.nome}</span>
+                </button>
+              );
+            })}
+          </div>
+          <Aviso m={msgCor} />
+          <p className="muted small" style={{ margin: '10px 0 0' }}>
+            Aparece no ranking, no histórico e no gráfico de peso. A cor de quem está com você fica bloqueada.
+          </p>
+        </section>
+      )}
+
+      {challenge && (
+        <section className="panel">
+          <h2>Minhas fotos</h2>
+          <p style={{ margin: '0 0 12px' }}>
+            {fotos === null ? 'Carregando…' : fotos.count === 0 ? 'Nenhuma foto sua guardada' : fmtFotos(fotos)}
+          </p>
+          <label className="field">
+            <span>Apagar fotos até o dia</span>
+            <input className="input" type="date" value={ateDia} max={today} onChange={(e) => setAteDia(e.target.value)} />
+          </label>
+          <Aviso m={msgFotos} />
+          <button className="btn danger block" type="button" disabled={apagando || !fotos || fotos.count === 0} onClick={apagarFotos}>
+            Apagar minhas fotos
+          </button>
+          <p className="muted small" style={{ margin: '10px 0 0' }}>
+            Apaga só as suas fotos, do início do desafio até o dia escolhido. Os registros e pontos continuam.
+          </p>
+        </section>
+      )}
+
       <section className="panel">
         <h2>Aparência</h2>
         <div className="seg full" role="group" aria-label="Tema">
@@ -166,4 +273,9 @@ export default function Config() {
       </button>
     </main>
   );
+}
+
+function fmtFotos(f: { count: number; bytes: number }) {
+  const mb = (f.bytes / 1_000_000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return (f.count === 1 ? '1 foto' : f.count + ' fotos') + ', ' + mb + ' MB';
 }

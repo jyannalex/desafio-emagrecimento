@@ -3,7 +3,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { useApp } from '../data/AppContext';
 import { deleteWeight, getProfiles, getWeights, upsertWeight } from '../data/repo';
 import { formatBR, todayBR } from '../lib/dates';
-import { playerSlot, playerVar } from '../lib/players';
+import { playerColors, playerSlot, playerVar } from '../lib/players';
 import type { Profile, Weight } from '../types';
 
 /** Último kg − primeiro kg (por data), arredondado a 0,1; null com menos de 2 pesagens. */
@@ -74,10 +74,11 @@ export default function Peso() {
     }
   }
 
+  const cores = playerColors(profiles);
   const pessoas = profiles
     .map((p) => ({ p, slot: playerSlot(profiles, p.id) }))
     .sort((a, b) => a.slot - b.slot)
-    .map(({ p, slot }) => ({ p, slot, cor: playerVar(slot), ws: (weights ?? []).filter((w) => w.user_id === p.id) }));
+    .map(({ p, slot }) => ({ p, slot, corId: cores.get(p.id)!, cor: playerVar(cores.get(p.id)!), ws: (weights ?? []).filter((w) => w.user_id === p.id) }));
 
   const dias = [...new Set((weights ?? []).map((w) => w.dia))].sort();
   const serie = dias.map((d) => {
@@ -146,9 +147,9 @@ export default function Peso() {
                     contentStyle={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--ink)' }}
                     formatter={(v: number, id: string) => [`${fmtKg(v)} kg`, pessoas.find((x) => x.p.id === id)?.p.nome ?? '']}
                   />
-                  {/* cor via CSS (.line-p1/.line-p2): atributo SVG não aceita var() */}
-                  {pessoas.map(({ p, slot }) => (
-                    <Line key={p.id} className={`line-p${slot}`} type="monotone" dataKey={p.id} strokeWidth={3} dot={{ r: 3.5, strokeWidth: 0 }} activeDot={{ r: 5, strokeWidth: 0 }} connectNulls isAnimationActive={false} />
+                  {/* cor via CSS (.line-<cor>): atributo SVG não aceita var() */}
+                  {pessoas.map(({ p, corId }) => (
+                    <Line key={p.id} className={`line-${corId}`} type="monotone" dataKey={p.id} strokeWidth={3} dot={{ r: 3.5, strokeWidth: 0 }} activeDot={{ r: 5, strokeWidth: 0 }} connectNulls isAnimationActive={false} />
                   ))}
                 </LineChart>
               </ResponsiveContainer>

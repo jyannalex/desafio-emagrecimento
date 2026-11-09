@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as auth from '../data/auth';
 import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
+import { todayBR } from '../lib/dates';
 import type { Challenge } from '../types';
 import Config from './Config';
 
@@ -29,6 +30,8 @@ beforeEach(() => {
   vi.mocked(repo.getProfiles).mockResolvedValue([{ id: 'a', nome: 'Ana', meta_agua_ml: 2000 }]);
   vi.mocked(repo.saveChallenge).mockResolvedValue();
   vi.mocked(repo.updateProfile).mockResolvedValue();
+  vi.mocked(repo.myPhotoStats).mockResolvedValue({ count: 0, bytes: 0 });
+  vi.mocked(repo.deletePhotosUntil).mockResolvedValue(0);
 });
 
 async function preencherDesafio(nome: string, inicio: string, fim: string) {
@@ -103,4 +106,45 @@ test('tema escuro aplica no app e fica marcado', async () => {
   expect(screen.getByRole('button', { name: 'Escuro' })).toHaveAttribute('aria-pressed', 'true');
   await userEvent.click(screen.getByRole('button', { name: 'Automático' }));
   expect(document.documentElement.dataset.theme).toBeUndefined();
+});
+
+const ch: Challenge = { id: 1, nome: 'Verão', data_inicio: '2026-11-10', data_fim: '2027-02-07' };
+
+test('escolher a minha cor grava na hora; a cor do outro fica bloqueada', async () => {
+  vi.mocked(repo.getProfiles).mockResolvedValue([
+    { id: 'a', nome: 'Ana', meta_agua_ml: 2000, cor: null },
+    { id: 'b', nome: 'Beto', meta_agua_ml: 2000, cor: 'menta' },
+  ]);
+  renderConfig(ch);
+  const grupo = await screen.findByRole('group', { name: 'Minha cor' });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Tangerina' })).toHaveAttribute('aria-pressed', 'true'));
+  expect(grupo).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Menta (cor de Beto)' })).toBeDisabled();
+  await userEvent.click(screen.getByRole('button', { name: 'Uva' }));
+  await waitFor(() => expect(repo.updateProfile).toHaveBeenCalledWith('a', { cor: 'uva' }));
+  expect(screen.getByRole('button', { name: 'Uva' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('mostra quanto as minhas fotos ocupam e apaga até a data escolhida', async () => {
+  vi.mocked(repo.myPhotoStats).mockResolvedValueOnce({ count: 3, bytes: 630_000 }).mockResolvedValue({ count: 0, bytes: 0 });
+  vi.mocked(repo.deletePhotosUntil).mockResolvedValue(3);
+  const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  renderConfig(ch);
+  expect(await screen.findByText('3 fotos, 0,6 MB')).toBeInTheDocument();
+  expect(screen.getByLabelText('Apagar fotos até o dia')).toHaveValue(todayBR());
+  await userEvent.click(screen.getByRole('button', { name: 'Apagar minhas fotos' }));
+  expect(confirmar).toHaveBeenCalled();
+  await waitFor(() => expect(repo.deletePhotosUntil).toHaveBeenCalledWith('a', todayBR()));
+  expect(await screen.findByText('3 fotos apagadas')).toBeInTheDocument();
+  expect(await screen.findByText('Nenhuma foto sua guardada')).toBeInTheDocument();
+  confirmar.mockRestore();
+});
+
+test('cancelar a confirmação não apaga fotos', async () => {
+  vi.mocked(repo.myPhotoStats).mockResolvedValue({ count: 1, bytes: 200_000 });
+  const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  renderConfig(ch);
+  await userEvent.click(await screen.findByRole('button', { name: 'Apagar minhas fotos' }));
+  expect(repo.deletePhotosUntil).not.toHaveBeenCalled();
+  confirmar.mockRestore();
 });

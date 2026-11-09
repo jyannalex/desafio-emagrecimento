@@ -24,8 +24,10 @@ const insLog = (uid: string, dia: string) =>
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(read('auth_stub.sql'));
+  await db.exec(read('storage_stub.sql'));
   await db.exec(read('../migrations/0001_init.sql'));
   await db.exec(read('../migrations/0002_qualquer_dia_e_nota_atividade.sql'));
+  await db.exec(read('../migrations/0003_fotos_e_cores.sql'));
   await db.exec(`
     insert into auth.users (id, email, raw_user_meta_data) values
       ('${A}', 'ana@x.com', '{"nome":"Ana"}'), ('${B}', 'beto@x.com', '{}');
@@ -143,4 +145,89 @@ test('upsert do app atualiza registro existente de hoje', async () => {
 
 test('upsert do app em dia fora do desafio é recusado', async () => {
   await expect(as(A, upsert(A, 'public.today_br() - 15'))).rejects.toThrow(/row-level security/);
+});
+
+// ── 0003: cores e fotos ──
+
+test('cada um escolhe a própria cor, só entre as da paleta', async () => {
+  const own = await as(A, `update profiles set cor = 'menta' where id = '${A}'`);
+  expect(own.affectedRows).toBe(1);
+  await expect(as(A, `update profiles set cor = 'roxo-neon' where id = '${A}'`)).rejects.toThrow(/check/);
+  const other = await as(A, `update profiles set cor = 'uva' where id = '${B}'`);
+  expect(other.affectedRows).toBe(0);
+});
+
+const insFoto = (uid: string, dia: string, tarefa: string, path: string) =>
+  `insert into photos (user_id, dia, tarefa, path, bytes) values ('${uid}', ${dia}, '${tarefa}', '${path}', 180000)`;
+
+test('A registra foto de um dia do desafio na própria pasta', async () => {
+  await as(A, insFoto(A, 'public.today_br()', 'almoco', `${A}/hoje-almoco.jpg`));
+  await as(A, insFoto(A, 'public.today_br() - 3', 'atividade', `${A}/antes-atividade.jpg`));
+  const r = await as(B, `select count(*)::int as n from photos where user_id = '${A}'`);
+  expect(r.rows[0]).toEqual({ n: 2 });
+});
+
+test('foto: não no nome de B, não na pasta de B, não no futuro, tarefa válida', async () => {
+  await expect(as(A, insFoto(B, 'public.today_br()', 'cafe', `${B}/x.jpg`))).rejects.toThrow(/row-level security/);
+  await expect(as(A, insFoto(A, 'public.today_br()', 'cafe', `${B}/x.jpg`))).rejects.toThrow(/row-level security/);
+  await expect(as(A, insFoto(A, 'public.today_br() + 1', 'cafe', `${A}/y.jpg`))).rejects.toThrow(/row-level security/);
+  await expect(as(A, insFoto(A, 'public.today_br()', 'agua', `${A}/z.jpg`))).rejects.toThrow(/check/);
+});
+
+test('trocar a foto da mesma tarefa é upsert', async () => {
+  await as(
+    A,
+    `${insFoto(A, 'public.today_br()', 'almoco', `${A}/hoje-almoco-2.jpg`)}
+     on conflict (user_id, dia, tarefa) do update set path = excluded.path, bytes = excluded.bytes`,
+  );
+  const r = await db.query<{ path: string }>(`select path from photos where user_id = '${A}' and tarefa = 'almoco'`);
+  expect(r.rows).toEqual([{ path: `${A}/hoje-almoco-2.jpg` }]);
+});
+
+test('A apaga as próprias fotos (até de dia travado), não as de B', async () => {
+  await db.exec(`insert into photos (user_id, dia, tarefa, path, bytes) values ('${B}', public.today_br(), 'cafe', '${B}/b.jpg', 1000)`);
+  const other = await as(A, `delete from photos where user_id = '${B}'`);
+  expect(other.affectedRows).toBe(0);
+  await db.exec(`update challenge set data_fim = public.today_br() - 5`);
+  try {
+    const own = await as(A, `delete from photos where user_id = '${A}' and tarefa = 'atividade'`);
+    expect(own.affectedRows).toBe(1);
+  } finally {
+    await db.exec(`update challenge set data_fim = public.today_br() + 10`);
+  }
+});
+
+test('bucket fotos é privado e limita tamanho e tipo', async () => {
+  const r = await db.query<{ public: boolean; file_size_limit: number; allowed_mime_types: string[] }>(
+    `select public, file_size_limit::int as file_size_limit, allowed_mime_types from storage.buckets where id = 'fotos'`,
+  );
+  expect(r.rows[0]).toEqual({ public: false, file_size_limit: 2097152, allowed_mime_types: ['image/jpeg'] });
+});
+
+const insObj = (path: string) => `insert into storage.objects (bucket_id, name) values ('fotos', '${path}')`;
+
+test('arquivo: A envia na própria pasta, não na de B nem em outro bucket', async () => {
+  await as(A, insObj(`${A}/2026-11-09/almoco-1.jpg`));
+  await expect(as(A, insObj(`${B}/2026-11-09/almoco-1.jpg`))).rejects.toThrow(/row-level security/);
+  await expect(as(A, `insert into storage.objects (bucket_id, name) values ('outro', '${A}/x.jpg')`)).rejects.toThrow();
+});
+
+test('arquivo: os dois veem, cada um só apaga o seu', async () => {
+  await db.exec(insObj(`${B}/2026-11-09/cafe-1.jpg`));
+  const ver = await as(A, `select count(*)::int as n from storage.objects where bucket_id = 'fotos'`);
+  expect(ver.rows[0]).toEqual({ n: 2 });
+  const delB = await as(A, `delete from storage.objects where name like '${B}/%'`);
+  expect(delB.affectedRows).toBe(0);
+  const delA = await as(A, `delete from storage.objects where name like '${A}/%'`);
+  expect(delA.affectedRows).toBe(1);
+});
+
+test('anônimo não vê fotos', async () => {
+  await db.exec(`set role anon;`);
+  try {
+    const r = await db.query(`select (select count(*) from photos)::int as f, (select count(*) from storage.objects)::int as o`);
+    expect(r.rows[0]).toEqual({ f: 0, o: 0 });
+  } finally {
+    await db.exec('reset role;');
+  }
 });
