@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import Hoje from './pages/Hoje';
 import Ranking from './pages/Ranking';
 import Historico from './pages/Historico';
+import Peso from './pages/Peso';
 
 const Placeholder = ({ t }: { t: string }) => (
   <main className="page">
@@ -75,7 +76,7 @@ function Shell() {
             <Route path="/" element={<Hoje />} />
             <Route path="/ranking" element={<Ranking />} />
             <Route path="/historico" element={<Historico />} />
-            <Route path="/peso" element={<Placeholder t="Peso" />} />
+            <Route path="/peso" element={<Peso />} />
             <Route path="/config" element={<Placeholder t="Configurações" />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
