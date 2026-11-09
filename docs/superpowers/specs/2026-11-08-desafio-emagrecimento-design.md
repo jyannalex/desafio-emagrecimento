@@ -32,9 +32,9 @@ Site para um casal (2 pessoas) acompanhar um desafio de emagrecimento com prazo 
 ### 2.1.1 Fotos (opcional)
 
 - Café, almoço, lanche, jantar e atividade aceitam **uma foto cada** por dia. Não vale ponto.
-- A foto é reduzida no aparelho (JPEG, lado maior 1280 px, ~150–250 KB) e vai para o Storage do Supabase (bucket privado , limite 2 MB, pasta = id da pessoa). A tabela  guarda caminho e tamanho. Os dois veem as fotos; cada um envia, troca e apaga só as suas.
+- A foto é reduzida no aparelho (JPEG, lado maior 1280 px, ~150–250 KB) e vai para o Storage do Supabase (bucket privado `fotos`, limite 2 MB, pasta = id da pessoa). A tabela `photos` guarda caminho e tamanho. Os dois veem as fotos; cada um envia, troca e apaga só as suas.
 - Em Configurações, cada um vê quantas fotos tem e quanto ocupam, e pode apagar as próprias até uma data. Registros e pontos não mudam.
-- Cada pessoa escolhe a própria cor (tangerina, mirtilo, framboesa, menta, uva, turquesa). A cor do outro fica bloqueada. *(Migração , 2026-11-09.)*
+- Cada pessoa escolhe a própria cor (tangerina, mirtilo, framboesa, menta, uva, turquesa). A cor do outro fica bloqueada. *(Migração `0003`, 2026-11-09.)*
 
 ### 2.2 Período e edição
 
