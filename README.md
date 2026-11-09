@@ -16,7 +16,10 @@ Stack: React + TypeScript + Vite · Supabase (login, Postgres, RLS) · GitHub Pa
 3. Em **Authentication → Sign In / Providers → Email**:
    - deixe **Email** ligado;
    - (opcional) desligue **Confirm email** para entrar sem precisar confirmar o e-mail.
-4. Em **Project Settings → API**, copie a **Project URL** e a chave **anon public**.
+4. Em **Authentication → URL Configuration**, coloque em **Site URL** o endereço do site
+   (`https://<seu-usuario>.github.io/desafio-emagrecimento/`) e adicione o mesmo em **Redirect URLs**.
+   Sem isso, o link de confirmação do e-mail abre `localhost`.
+5. Em **Project Settings → API**, copie a **Project URL** e a chave **anon public**.
 
 ### 2. GitHub
 1. Crie um repositório chamado **`desafio-emagrecimento`** e envie este código:

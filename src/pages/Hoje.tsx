@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../data/AppContext';
 import { getProfiles } from '../data/repo';
 import { useDailyLog } from '../hooks/useDailyLog';
-import { addDays, formatBR, isEditable, todayBR } from '../lib/dates';
+import { addDays, formatBR, isEditable } from '../lib/dates';
+import { useToday } from '../hooks/useToday';
 import { dayPoints, MAX_POINTS } from '../lib/scoring';
 import type { Challenge } from '../types';
 
@@ -18,7 +19,7 @@ const MEALS: { key: MealKey; note: NoteKey; icon: string; label: string; noteLab
 
 export default function Hoje() {
   const { userId, challenge } = useApp();
-  const today = todayBR();
+  const today = useToday();
   const [qual, setQual] = useState<'hoje' | 'ontem'>('hoje');
   const [meta, setMeta] = useState<number | null>(null);
   const [erro, setErro] = useState(false);

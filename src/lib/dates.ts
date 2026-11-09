@@ -9,7 +9,9 @@ const fmtBR = new Intl.DateTimeFormat('en-CA', {
 
 /** Data de hoje (YYYY-MM-DD) no fuso America/Sao_Paulo. */
 export function todayBR(now: Date = new Date()): string {
-  return fmtBR.format(now);
+  // formatToParts não depende de como o locale ordena/separa a data
+  const p = Object.fromEntries(fmtBR.formatToParts(now).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
 }
 
 function toUTC(day: string): number {

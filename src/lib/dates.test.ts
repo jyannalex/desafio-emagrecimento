@@ -33,3 +33,12 @@ test('isEditable', () => {
 test('formatBR', () => {
   expect(formatBR('2026-11-09')).toBe('09/11/2026');
 });
+
+test('todayBR não depende do formato de data do locale', () => {
+  const spy = vi.spyOn(Intl.DateTimeFormat.prototype as any, 'format', 'get').mockReturnValue(() => '11/9/2026');
+  try {
+    expect(todayBR(new Date('2026-11-09T15:00:00Z'))).toBe('2026-11-09');
+  } finally {
+    spy.mockRestore();
+  }
+});

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../data/AppContext';
 import { getLogs, getProfiles } from '../data/repo';
-import { addDays, formatBR, todayBR } from '../lib/dates';
+import { addDays, formatBR } from '../lib/dates';
+import { useToday } from '../hooks/useToday';
 import { dayPoints, MAX_POINTS } from '../lib/scoring';
 import type { DailyLog, Profile } from '../types';
 
@@ -17,6 +18,7 @@ const diaSemana = (d: string) => DIAS_SEMANA[new Date(`${d}T12:00:00Z`).getUTCDa
 
 export default function Historico() {
   const { challenge } = useApp();
+  const today = useToday();
   const [dados, setDados] = useState<{ profiles: Profile[]; logs: DailyLog[] } | null>(null);
   const [erro, setErro] = useState(false);
   const [aberto, setAberto] = useState<string | null>(null);
@@ -54,7 +56,6 @@ export default function Historico() {
     );
   }
 
-  const today = todayBR();
   const ultimo = today < challenge.data_fim ? today : challenge.data_fim;
   const dias: string[] = [];
   for (let d = ultimo; d >= challenge.data_inicio; d = addDays(d, -1)) dias.push(d);

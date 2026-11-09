@@ -34,7 +34,7 @@ export async function signIn(email: string, senha: string): Promise<string | nul
 
 /** { error } em falha; { info } quando precisa confirmar o e-mail; {} quando já entrou. */
 export async function signUp(email: string, senha: string, nome: string): Promise<{ error?: string; info?: string }> {
-  const { data, error } = await db().auth.signUp({ email, password: senha, options: { data: { nome } } });
+  const { data, error } = await db().auth.signUp({ email, password: senha, options: { data: { nome }, emailRedirectTo: window.location.origin + import.meta.env.BASE_URL } });
   if (error) return { error: traduz(error.message) };
   if (!data.session) return { info: 'Conta criada. Confirme o e-mail e depois entre.' };
   return {};

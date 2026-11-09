@@ -114,3 +114,18 @@ test('anônimo não lê nada', async () => {
     await db.exec('reset role;');
   }
 });
+
+// O app grava via upsert (insert ... on conflict do update), como o PostgREST faz.
+const upsert = (uid: string, dia: string) =>
+  `insert into daily_logs (user_id, dia, agua_ml, meta_agua_ml_do_dia) values ('${uid}', ${dia}, 750, 2000)
+   on conflict (user_id, dia) do update set agua_ml = excluded.agua_ml`;
+
+test('upsert do app atualiza registro existente de hoje', async () => {
+  await as(A, upsert(A, 'public.today_br()'));
+  const r = await db.query<{ agua_ml: number }>(`select agua_ml from daily_logs where user_id = '${A}' and dia = public.today_br()`);
+  expect(r.rows[0].agua_ml).toBe(750);
+});
+
+test('upsert do app em dia travado já existente é recusado', async () => {
+  await expect(as(A, upsert(A, 'public.today_br() - 5'))).rejects.toThrow(/row-level security/);
+});

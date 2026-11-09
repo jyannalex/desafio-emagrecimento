@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../data/AppContext';
 import { getLogs, getProfiles } from '../data/repo';
-import { formatBR, todayBR } from '../lib/dates';
+import { formatBR } from '../lib/dates';
+import { useToday } from '../hooks/useToday';
 import { standing, winner, type Score, type Standing } from '../lib/scoring';
 import type { DailyLog, Profile } from '../types';
 
@@ -9,6 +10,7 @@ const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
 
 export default function Ranking() {
   const { challenge } = useApp();
+  const today = useToday();
   const [dados, setDados] = useState<{ profiles: Profile[]; logs: DailyLog[] } | null>(null);
   const [erro, setErro] = useState(false);
 
@@ -45,7 +47,6 @@ export default function Ranking() {
     );
   }
 
-  const today = todayBR();
   const placares = dados.profiles.map((p, i) => ({
     p,
     cor: i === 0 ? 'var(--p1)' : 'var(--p2)',
