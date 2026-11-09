@@ -2,12 +2,22 @@ import type { Challenge, DailyLog } from '../types';
 import { addDays, daysInclusive, weekStart } from './dates';
 
 export const MAX_POINTS = 6;
+/** Minutos de atividade no dia para ganhar o ponto. */
+export const ATIVIDADE_META_MIN = 60;
 
-type PointFields = Pick<DailyLog, 'cafe' | 'almoco' | 'lanche' | 'jantar' | 'atividade' | 'agua_ml' | 'meta_agua_ml_do_dia'>;
+type PointFields = Pick<DailyLog, 'cafe' | 'almoco' | 'lanche' | 'jantar' | 'atividade_min' | 'agua_ml' | 'meta_agua_ml_do_dia'> &
+  Partial<Pick<DailyLog, 'atividade'>>;
 
 export function dayPoints(log: PointFields | null | undefined): number {
   if (!log) return 0;
-  const checks = [log.cafe, log.almoco, log.lanche, log.jantar, log.atividade, log.agua_ml >= log.meta_agua_ml_do_dia];
+  const checks = [
+    log.cafe,
+    log.almoco,
+    log.lanche,
+    log.jantar,
+    log.atividade_min >= ATIVIDADE_META_MIN,
+    log.agua_ml >= log.meta_agua_ml_do_dia,
+  ];
   return checks.filter(Boolean).length;
 }
 

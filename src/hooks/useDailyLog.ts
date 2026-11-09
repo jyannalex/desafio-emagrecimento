@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../components/Toast';
 import { getLogs, upsertLog } from '../data/repo';
 import type { DailyLog } from '../types';
+import { ATIVIDADE_META_MIN } from '../lib/scoring';
 
 export function emptyLog(userId: string, dia: string, meta: number): DailyLog {
   return {
@@ -93,5 +94,13 @@ export function useDailyLog(userId: string, dia: string, metaAtual: number, edit
     [update],
   );
 
-  return { log, loading, loadError, reload: load, editable, update, addAgua };
+  const addAtividade = useCallback(
+    (delta: number) => {
+      const min = Math.max(0, current.current.atividade_min + delta);
+      update({ atividade_min: min, atividade: min >= ATIVIDADE_META_MIN });
+    },
+    [update],
+  );
+
+  return { log, loading, loadError, reload: load, editable, update, addAgua, addAtividade };
 }

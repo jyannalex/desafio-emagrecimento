@@ -239,12 +239,6 @@ h2 {
 }
 .check:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.minutes { display: inline-flex; align-items: center; gap: 8px; }
-.minutes input {
-  width: 76px; text-align: center; font-weight: 700; border: 0; background: var(--surface-2);
-  border-radius: var(--r-pill); padding: 6px 10px; min-height: 36px;
-}
-.minutes input:focus { outline: 2px solid var(--me); }
 
 /* ───────── Anel de pontos (Hoje) ───────── */
 .day-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0 20px; }
@@ -257,27 +251,31 @@ h2 {
 .ring .pts { font-size: 2.6rem; }
 .ring .of { font-size: 0.8rem; color: var(--ink-2); font-weight: 600; margin-top: 2px; }
 
-/* ───────── Água ───────── */
-.water-meter {
+/* ───────── Medidores (água e atividade) ───────── */
+.meter {
+  --fill: var(--water); --fill-soft: var(--water-soft);
   position: relative; height: 54px; border-radius: var(--r-md); overflow: hidden;
-  background: var(--water-soft); margin: 6px 0 12px;
+  background: var(--fill-soft); margin: 6px 0 12px;
 }
-.water-meter .fill {
-  position: absolute; inset: 0 auto 0 0; background: var(--water);
+.meter.activity { --fill: var(--me); --fill-soft: var(--me-soft); }
+.meter .fill {
+  position: absolute; inset: 0 auto 0 0; background: var(--fill);
   transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.water-meter .fill::after {
+.meter.water .fill::after {
   content: ''; position: absolute; right: -8px; top: 0; bottom: 0; width: 16px;
-  background: radial-gradient(circle at 0 50%, var(--water) 60%, transparent 62%) 0 0 / 16px 16px repeat-y;
+  background: radial-gradient(circle at 0 50%, var(--fill) 60%, transparent 62%) 0 0 / 16px 16px repeat-y;
 }
-.water-meter .label {
+.meter .label {
   position: absolute; inset: 0; display: flex; align-items: center; padding: 0 16px;
   font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink);
 }
-.water-meter.done .label { color: var(--on-color); }
-.water-btns { display: grid; grid-template-columns: 0.8fr 1fr 1fr; gap: 8px; }
-.water-btns .btn { padding-inline: 8px; }
-.water-btns .btn.add { background: var(--water-soft); color: var(--ink); }
+.meter.done .label { color: var(--on-color); }
+.meter-btns { display: grid; grid-template-columns: 0.8fr 1fr 1fr; gap: 8px; }
+.meter-btns.four { grid-template-columns: 0.7fr 1fr 1fr 0.9fr; }
+.meter-btns .btn { padding-inline: 6px; }
+.water .btn.add, .meter-btns .btn.add { background: var(--water-soft); color: var(--ink); }
+.panel:has(.meter.activity) .btn.add { background: var(--me-soft); }
 
 /* ───────── Duelo (Ranking) ───────── */
 .duel-names { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }

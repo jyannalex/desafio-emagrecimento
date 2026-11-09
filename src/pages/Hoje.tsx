@@ -5,7 +5,7 @@ import { useDailyLog } from '../hooks/useDailyLog';
 import { useToday } from '../hooks/useToday';
 import { addDays, formatBR, formatLong, isEditable } from '../lib/dates';
 import { playerSlot, playerSoftVar, playerVar } from '../lib/players';
-import { dayPoints, MAX_POINTS } from '../lib/scoring';
+import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
 import type { Challenge } from '../types';
 
 type MealKey = 'cafe' | 'almoco' | 'lanche' | 'jantar';
@@ -110,12 +110,14 @@ function resumo(pts: number) {
 
 function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: string; today: string; meta: number; challenge: Challenge }) {
   const editable = isEditable(dia, today, challenge);
-  const { log, loading, loadError, reload, update, addAgua } = useDailyLog(userId, dia, meta, editable);
+  const { log, loading, loadError, reload, update, addAgua, addAtividade } = useDailyLog(userId, dia, meta, editable);
   const off = !editable || loading || loadError;
   const pts = dayPoints(log);
   const refeicoes = MEALS.filter((m) => log[m.key]).length;
   const pctAgua = Math.min(100, Math.round((log.agua_ml / log.meta_agua_ml_do_dia) * 100));
   const aguaOk = log.agua_ml >= log.meta_agua_ml_do_dia;
+  const pctAtividade = Math.min(100, Math.round((log.atividade_min / ATIVIDADE_META_MIN) * 100));
+  const atividadeOk = log.atividade_min >= ATIVIDADE_META_MIN;
 
   return (
     <>
@@ -166,20 +168,29 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
       </section>
 
       <section className="panel">
-        <div className="task-main" style={{ cursor: 'default' }}>
-          <input
-            id="atividade"
-            className="check"
-            type="checkbox"
-            aria-label="Atividade física"
-            checked={log.atividade}
-            disabled={off}
-            onChange={(e) => update({ atividade: e.target.checked })}
-          />
-          <label htmlFor="atividade" className="task-name grow" style={{ cursor: 'pointer' }}>
-            Atividade física
-          </label>
-          <Minutos value={log.atividade_min} disabled={off} onSave={(v) => update({ atividade_min: v })} />
+        <div className="panel-title">
+          <h2>Atividade física</h2>
+          <span className="muted small">{atividadeOk ? 'Meta batida' : `Meta de ${ATIVIDADE_META_MIN} min`}</span>
+        </div>
+        <div className={`meter activity${pctAtividade >= 55 ? ' done' : ''}`}>
+          <div className="fill" style={{ width: `${pctAtividade}%` }} />
+          <div className="label">
+            {log.atividade_min} / {ATIVIDADE_META_MIN} min
+          </div>
+        </div>
+        <div className="meter-btns four">
+          <button className="btn" disabled={off || log.atividade_min === 0} onClick={() => addAtividade(-10)} aria-label="−10 min">
+            −10
+          </button>
+          <button className="btn add" disabled={off} onClick={() => addAtividade(10)} aria-label="+10 min">
+            +10 min
+          </button>
+          <button className="btn add" disabled={off} onClick={() => addAtividade(30)} aria-label="+30 min">
+            +30 min
+          </button>
+          <button className="btn add" disabled={off} onClick={() => addAtividade(60)} aria-label="+1 h">
+            +1 h
+          </button>
         </div>
       </section>
 
@@ -188,13 +199,13 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
           <h2>Água</h2>
           <span className="muted small">{aguaOk ? 'Meta batida' : `Meta de ${log.meta_agua_ml_do_dia} ml`}</span>
         </div>
-        <div className={`water-meter${pctAgua >= 55 ? ' done' : ''}`}>
+        <div className={`meter water${pctAgua >= 55 ? ' done' : ''}`}>
           <div className="fill" style={{ width: `${pctAgua}%` }} />
           <div className="label">
             {log.agua_ml} / {log.meta_agua_ml_do_dia} ml
           </div>
         </div>
-        <div className="water-btns">
+        <div className="meter-btns">
           <button className="btn" disabled={off || log.agua_ml === 0} onClick={() => addAgua(-250)} aria-label="−250 ml">
             −250
           </button>
@@ -238,33 +249,5 @@ function Nota({ label, value, disabled, onSave }: { label: string; value: string
         if (novo !== (value ?? null)) onSave(novo);
       }}
     />
-  );
-}
-
-function Minutos({ value, disabled, onSave }: { value: number; disabled: boolean; onSave: (v: number) => void }) {
-  const { v, setV, focused } = useSynced(String(value));
-  return (
-    <span className="minutes">
-      <input
-        type="number"
-        inputMode="numeric"
-        min={0}
-        aria-label="Minutos de atividade"
-        value={v}
-        disabled={disabled}
-        onFocus={(e) => {
-          focused.current = true;
-          e.target.select();
-        }}
-        onChange={(e) => setV(e.target.value)}
-        onBlur={() => {
-          focused.current = false;
-          const n = Math.max(0, Math.floor(Number(v) || 0));
-          setV(String(n));
-          if (n !== value) onSave(n);
-        }}
-      />
-      <span className="muted small">min</span>
-    </span>
   );
 }

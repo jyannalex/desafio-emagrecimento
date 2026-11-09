@@ -34,7 +34,7 @@ const ativo = { id: 1 as const, nome: 'X', data_inicio: addDays(hoje, -30), data
 
 test('mostra as tarefas do dia e 0/6', async () => {
   renderHoje(ativo);
-  for (const t of ['Café da manhã', 'Almoço', 'Lanche', 'Jantar', 'Atividade física']) {
+  for (const t of ['Café da manhã', 'Almoço', 'Lanche', 'Jantar']) {
     expect(await screen.findByLabelText(t)).toBeInTheDocument();
   }
   expect(screen.getByText('Água')).toBeInTheDocument();
@@ -79,4 +79,23 @@ test('ontem fora do período fica travado', async () => {
   expect(await screen.findByText('Fora do período do desafio')).toBeInTheDocument();
   await waitFor(() => expect(screen.getByLabelText('Café da manhã')).toBeDisabled());
   expect(screen.getByRole('button', { name: '+250 ml' })).toBeDisabled();
+});
+
+test('atividade soma minutos com botões e pontua só com 1 hora', async () => {
+  renderHoje(ativo);
+  expect(await screen.findByText('Atividade física')).toBeInTheDocument();
+  expect(screen.queryByRole('checkbox', { name: 'Atividade física' })).not.toBeInTheDocument();
+  const mais10 = screen.getByRole('button', { name: '+10 min' });
+  await waitFor(() => expect(mais10).not.toBeDisabled());
+  expect(screen.getByRole('button', { name: '−10 min' })).toBeDisabled();
+  await userEvent.click(mais10);
+  await userEvent.click(screen.getByRole('button', { name: '+30 min' }));
+  expect(screen.getByText('40 / 60 min')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '0 de 6 pontos' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: '+1 h' }));
+  expect(screen.getByText('100 / 60 min')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '1 de 6 pontos' })).toBeInTheDocument();
+  await waitFor(() =>
+    expect(repo.upsertLog).toHaveBeenLastCalledWith(expect.objectContaining({ atividade_min: 100, atividade: true })),
+  );
 });

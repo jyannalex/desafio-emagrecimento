@@ -1,7 +1,7 @@
 import type { DailyLog } from '../types';
-import { dayPoints, standing, winner, MAX_POINTS } from './scoring';
+import { ATIVIDADE_META_MIN, dayPoints, standing, winner, MAX_POINTS } from './scoring';
 
-const base = { cafe: false, almoco: false, lanche: false, jantar: false, atividade: false, agua_ml: 0, meta_agua_ml_do_dia: 2000 };
+const base = { cafe: false, almoco: false, lanche: false, jantar: false, atividade: false, atividade_min: 0, agua_ml: 0, meta_agua_ml_do_dia: 2000 };
 const log = (dia: string, p: Partial<DailyLog>) =>
   ({ ...base, user_id: 'a', dia, nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, atividade_min: 0, ...p }) as DailyLog;
 const ch = { id: 1 as const, nome: 'x', data_inicio: '2026-11-05', data_fim: '2026-11-20' };
@@ -11,9 +11,14 @@ test('MAX_POINTS é 6', () => expect(MAX_POINTS).toBe(6));
 test('dayPoints', () => {
   expect(dayPoints(null)).toBe(0);
   expect(dayPoints(base)).toBe(0);
-  expect(dayPoints({ ...base, cafe: true, almoco: true, lanche: true, jantar: true, atividade: true, agua_ml: 2000 })).toBe(6);
+  expect(dayPoints({ ...base, cafe: true, almoco: true, lanche: true, jantar: true, atividade_min: 60, agua_ml: 2000 })).toBe(6);
   expect(dayPoints({ ...base, agua_ml: 1999 })).toBe(0);
-  expect(dayPoints({ ...base, atividade: true })).toBe(1);
+  expect(ATIVIDADE_META_MIN).toBe(60);
+  expect(dayPoints({ ...base, atividade_min: 59 })).toBe(0);
+  expect(dayPoints({ ...base, atividade_min: 60 })).toBe(1);
+  expect(dayPoints({ ...base, atividade_min: 95 })).toBe(1);
+  // o ✓ antigo não vale mais ponto sozinho
+  expect(dayPoints({ ...base, atividade: true, atividade_min: 30 })).toBe(0);
 });
 
 test('meta de água usa a do dia', () => {

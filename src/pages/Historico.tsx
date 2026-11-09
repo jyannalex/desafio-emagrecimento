@@ -4,7 +4,7 @@ import { getLogs, getProfiles } from '../data/repo';
 import { useToday } from '../hooks/useToday';
 import { addDays, formatShort, formatWeekday } from '../lib/dates';
 import { playerSlot, playerVar } from '../lib/players';
-import { dayPoints, MAX_POINTS } from '../lib/scoring';
+import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
 import type { DailyLog, Profile } from '../types';
 
 const REFEICOES: { key: 'cafe' | 'almoco' | 'lanche' | 'jantar'; nota: 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar'; label: string }[] = [
@@ -150,7 +150,7 @@ function Detalhe({ nome, cor, log }: { nome: string; cor: string; log?: DailyLog
               {log[r.nota] && <span className="nota">{log[r.nota]}</span>}
             </Item>
           ))}
-          <Item ok={log.atividade}>Atividade física{log.atividade_min > 0 ? ` · ${log.atividade_min} min` : ''}</Item>
+          <Item ok={log.atividade_min >= ATIVIDADE_META_MIN}>Atividade física · {log.atividade_min} min</Item>
           <Item ok={log.agua_ml >= log.meta_agua_ml_do_dia}>
             Água · {log.agua_ml} / {log.meta_agua_ml_do_dia} ml
           </Item>

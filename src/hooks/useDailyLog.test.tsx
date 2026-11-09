@@ -92,3 +92,26 @@ test('dia não editável ignora update', async () => {
   expect(repo.upsertLog).not.toHaveBeenCalled();
   expect(result.current.log.cafe).toBe(false);
 });
+
+test('somar minutos de atividade marca o ponto ao chegar em 60', async () => {
+  const { result } = await setup();
+  act(() => {
+    result.current.addAtividade(10);
+    result.current.addAtividade(30);
+  });
+  expect(result.current.log.atividade_min).toBe(40);
+  expect(result.current.log.atividade).toBe(false);
+  act(() => result.current.addAtividade(30));
+  expect(result.current.log.atividade_min).toBe(70);
+  expect(result.current.log.atividade).toBe(true);
+  act(() => result.current.addAtividade(-10));
+  act(() => result.current.addAtividade(-10));
+  expect(result.current.log.atividade).toBe(false);
+  await waitFor(() => expect(vi.mocked(repo.upsertLog).mock.calls.at(-1)?.[0]).toMatchObject({ atividade_min: 50, atividade: false }));
+});
+
+test('minutos de atividade nunca ficam negativos', async () => {
+  const { result } = await setup();
+  act(() => result.current.addAtividade(-10));
+  expect(result.current.log.atividade_min).toBe(0);
+});
