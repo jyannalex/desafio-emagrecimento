@@ -78,7 +78,7 @@ export default function Peso() {
   const pessoas = profiles
     .map((p) => ({ p, slot: playerSlot(profiles, p.id) }))
     .sort((a, b) => a.slot - b.slot)
-    .map(({ p, slot }) => ({ p, slot, corId: cores.get(p.id)!, cor: playerVar(cores.get(p.id)!), ws: (weights ?? []).filter((w) => w.user_id === p.id) }));
+    .map(({ p, slot }) => ({ p, slot, cor: playerVar(cores.get(p.id)!), ws: (weights ?? []).filter((w) => w.user_id === p.id) }));
 
   const dias = [...new Set((weights ?? []).map((w) => w.dia))].sort();
   const serie = dias.map((d) => {
@@ -132,6 +132,12 @@ export default function Peso() {
           </div>
           {serie.length > 1 && (
             <div style={{ width: '100%', height: 220, marginTop: 6 }}>
+              {/* cor das linhas via CSS: atributo SVG não aceita var() nem light-dark() */}
+              <style>
+                {pessoas
+                  .map(({ slot, cor }) => `.line-pessoa-${slot} .recharts-curve{stroke:${cor}}.line-pessoa-${slot} circle{fill:${cor}}`)
+                  .join('')}
+              </style>
               <ResponsiveContainer>
                 <LineChart data={serie} margin={{ top: 10, right: 6, left: -18, bottom: 0 }}>
                   <CartesianGrid stroke="var(--line)" vertical={false} />
@@ -147,9 +153,8 @@ export default function Peso() {
                     contentStyle={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--ink)' }}
                     formatter={(v: number, id: string) => [`${fmtKg(v)} kg`, pessoas.find((x) => x.p.id === id)?.p.nome ?? '']}
                   />
-                  {/* cor via CSS (.line-<cor>): atributo SVG não aceita var() */}
-                  {pessoas.map(({ p, corId }) => (
-                    <Line key={p.id} className={`line-${corId}`} type="monotone" dataKey={p.id} strokeWidth={3} dot={{ r: 3.5, strokeWidth: 0 }} activeDot={{ r: 5, strokeWidth: 0 }} connectNulls isAnimationActive={false} />
+                  {pessoas.map(({ p, slot }) => (
+                    <Line key={p.id} className={`line-pessoa-${slot}`} type="monotone" dataKey={p.id} strokeWidth={3} dot={{ r: 3.5, strokeWidth: 0 }} activeDot={{ r: 5, strokeWidth: 0 }} connectNulls isAnimationActive={false} />
                   ))}
                 </LineChart>
               </ResponsiveContainer>

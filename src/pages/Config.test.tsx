@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as auth from '../data/auth';
@@ -147,4 +147,31 @@ test('cancelar a confirmação não apaga fotos', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Apagar minhas fotos' }));
   expect(repo.deletePhotosUntil).not.toHaveBeenCalled();
   confirmar.mockRestore();
+});
+
+test('outra cor: escolher no seletor grava a cor livre', async () => {
+  vi.mocked(repo.getProfiles).mockResolvedValue([
+    { id: 'a', nome: 'Ana', meta_agua_ml: 2000, cor: null },
+    { id: 'b', nome: 'Beto', meta_agua_ml: 2000, cor: '#00aa55' },
+  ]);
+  renderConfig(ch);
+  const seletor = await screen.findByLabelText('Outra cor');
+  await waitFor(() => expect(seletor).not.toBeDisabled());
+  fireEvent.change(seletor, { target: { value: '#C0FFEE' } });
+  await waitFor(() => expect(repo.updateProfile).toHaveBeenCalledWith('a', { cor: '#c0ffee' }), { timeout: 2000 });
+  expect(seletor.closest('.swatch')).toHaveClass('on');
+});
+
+test('outra cor igual à do outro não grava', async () => {
+  vi.mocked(repo.getProfiles).mockResolvedValue([
+    { id: 'a', nome: 'Ana', meta_agua_ml: 2000, cor: null },
+    { id: 'b', nome: 'Beto', meta_agua_ml: 2000, cor: '#00aa55' },
+  ]);
+  renderConfig(ch);
+  const seletor = await screen.findByLabelText('Outra cor');
+  await waitFor(() => expect(seletor).not.toBeDisabled());
+  fireEvent.change(seletor, { target: { value: '#00aa55' } });
+  expect(await screen.findByText('Essa é a cor de Beto, escolha outra')).toBeInTheDocument();
+  await new Promise((r) => setTimeout(r, 700));
+  expect(repo.updateProfile).not.toHaveBeenCalled();
 });

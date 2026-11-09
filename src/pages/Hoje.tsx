@@ -8,7 +8,7 @@ import { useToday } from '../hooks/useToday';
 import { addDays, formatBR, formatLong, formatWeekday, isEditable } from '../lib/dates';
 import { playerColors, playerSoftVar, playerVar } from '../lib/players';
 import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
-import type { Challenge, CorId } from '../types';
+import type { Challenge, Cor } from '../types';
 
 type MealKey = 'cafe' | 'almoco' | 'lanche' | 'jantar';
 type NoteKey = 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar';
@@ -24,7 +24,7 @@ export default function Hoje() {
   const { userId, challenge } = useApp();
   const today = useToday();
   const [escolhido, setEscolhido] = useState<string | null>(null);
-  const [perfil, setPerfil] = useState<{ meta: number; cor: CorId } | null>(null);
+  const [perfil, setPerfil] = useState<{ meta: number; cor: Cor } | null>(null);
   const [erro, setErro] = useState(false);
 
   async function carregarPerfil() {

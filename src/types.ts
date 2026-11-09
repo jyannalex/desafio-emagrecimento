@@ -1,6 +1,8 @@
 export type CorId = 'tangerina' | 'mirtilo' | 'framboesa' | 'menta' | 'uva' | 'turquesa';
+/** Uma das cores prontas (CorId) ou uma cor livre '#rrggbb'. */
+export type Cor = string;
 
-export type Profile = { id: string; nome: string; meta_agua_ml: number; cor?: CorId | null };
+export type Profile = { id: string; nome: string; meta_agua_ml: number; cor?: Cor | null };
 
 export type Tarefa = 'cafe' | 'almoco' | 'lanche' | 'jantar' | 'atividade';
 

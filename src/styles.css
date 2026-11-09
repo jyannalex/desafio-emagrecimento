@@ -393,19 +393,6 @@ h2 {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
-/* linhas do gráfico de peso */
-.line-tangerina .recharts-curve { stroke: var(--c-tangerina); }
-.line-tangerina .recharts-dot, .line-tangerina circle { fill: var(--c-tangerina); }
-.line-mirtilo .recharts-curve { stroke: var(--c-mirtilo); }
-.line-mirtilo .recharts-dot, .line-mirtilo circle { fill: var(--c-mirtilo); }
-.line-framboesa .recharts-curve { stroke: var(--c-framboesa); }
-.line-framboesa .recharts-dot, .line-framboesa circle { fill: var(--c-framboesa); }
-.line-menta .recharts-curve { stroke: var(--c-menta); }
-.line-menta .recharts-dot, .line-menta circle { fill: var(--c-menta); }
-.line-uva .recharts-curve { stroke: var(--c-uva); }
-.line-uva .recharts-dot, .line-uva circle { fill: var(--c-uva); }
-.line-turquesa .recharts-curve { stroke: var(--c-turquesa); }
-.line-turquesa .recharts-dot, .line-turquesa circle { fill: var(--c-turquesa); }
 
 /* navegação de data (Hoje) */
 .date-nav { display: flex; align-items: center; gap: 6px; }
@@ -476,3 +463,16 @@ h2 {
 .swatch[aria-pressed='true'] i { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--sw); }
 .swatch:disabled { opacity: 0.4; cursor: not-allowed; }
 .swatch:disabled span { text-decoration: line-through; }
+.swatch.custom {
+  margin-top: 10px; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 10px 14px;
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; row-gap: 0;
+  align-items: center; text-align: left;
+}
+.swatch.custom input[type='color'] {
+  grid-row: 1 / 3; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%;
+  background: conic-gradient(#f44, #fd3, #4d6, #3cf, #66f, #e4e, #f44); cursor: pointer;
+}
+.swatch.custom input[type='color']::-webkit-color-swatch-wrapper { padding: 4px; }
+.swatch.custom input[type='color']::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.swatch.custom input[type='color']::-moz-color-swatch { border: 0; border-radius: 50%; }
+.swatch.custom.on { border-color: var(--sw); box-shadow: inset 0 0 0 1.5px var(--sw); }

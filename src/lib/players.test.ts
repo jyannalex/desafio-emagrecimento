@@ -48,3 +48,14 @@ test('variáveis CSS da cor', () => {
   expect(playerVar('menta')).toBe('var(--c-menta)');
   expect(playerSoftVar('menta')).toBe('var(--c-menta-soft)');
 });
+
+test('cor livre vira light-dark com as versões de cada tema', () => {
+  expect(playerVar('#ffee00')).toMatch(/^light-dark\(#[0-9a-f]{6}, #ffee00\)$/);
+  expect(playerSoftVar('#3a7bd5')).toMatch(/^light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\)$/);
+});
+
+test('cor livre escolhida vale, e a padrão do outro continua', () => {
+  const m = playerColors([{ ...ps[0], cor: '#123abc' }, ps[1]]);
+  expect(m.get('b-2')).toBe('#123abc');
+  expect(m.get('a-1')).toBe('tangerina');
+});

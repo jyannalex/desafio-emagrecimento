@@ -1,12 +1,13 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from '../data/auth';
 import { useApp } from '../data/AppContext';
 import { deletePhotosUntil, getProfiles, myPhotoStats, saveChallenge, updateProfile } from '../data/repo';
 import { useToday } from '../hooks/useToday';
+import { ehHex } from '../lib/cores';
 import { CORES, playerColors, playerVar } from '../lib/players';
 import { getThemePref, setThemePref, type ThemePref } from '../lib/theme';
-import type { CorId, Profile } from '../types';
+import type { Cor, Profile } from '../types';
 
 type Msg = { erro: boolean; texto: string } | null;
 
@@ -81,7 +82,27 @@ export default function Config() {
   const outro = perfis.find((p) => p.id !== userId);
   const corDoOutro = outro ? cores.get(outro.id) : undefined;
 
-  async function escolherCor(cor: CorId) {
+  const minhaLivre = minhaCor && ehHex(minhaCor) ? minhaCor : null;
+  const [rascunho, setRascunho] = useState<string | null>(null);
+  const timerCor = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(timerCor.current), []);
+  const corLivre = rascunho ?? minhaLivre ?? '#3a7bd5';
+
+  function mudarCorLivre(valor: string) {
+    const v = valor.toLowerCase();
+    setRascunho(v);
+    clearTimeout(timerCor.current);
+    if (!ehHex(v)) return;
+    if (v === corDoOutro) {
+      setMsgCor({ erro: true, texto: 'Essa é a cor de ' + outro!.nome + ', escolha outra' });
+      return;
+    }
+    setMsgCor(null);
+    // o seletor dispara a cada movimento; grava quando a pessoa para
+    timerCor.current = setTimeout(() => escolherCor(v), 500);
+  }
+
+  async function escolherCor(cor: Cor) {
     const antes = perfis;
     setMsgCor(null);
     setPerfis((ps) => ps.map((p) => (p.id === userId ? { ...p, cor } : p)));
@@ -219,7 +240,11 @@ export default function Config() {
                   aria-pressed={minhaCor === c.id}
                   aria-label={doOutro ? c.nome + ' (cor de ' + outro!.nome + ')' : c.nome}
                   disabled={doOutro || !perfilCarregado}
-                  onClick={() => escolherCor(c.id)}
+                  onClick={() => {
+                    clearTimeout(timerCor.current);
+                    setRascunho(null);
+                    escolherCor(c.id);
+                  }}
                 >
                   <i aria-hidden />
                   <span>{c.nome}</span>
@@ -227,9 +252,20 @@ export default function Config() {
               );
             })}
           </div>
+          <label className={'swatch custom' + (minhaLivre ? ' on' : '')} style={{ '--sw': corLivre } as CSSProperties}>
+            <input
+              type="color"
+              aria-label="Outra cor"
+              value={corLivre}
+              disabled={!perfilCarregado}
+              onChange={(e) => mudarCorLivre(e.target.value)}
+            />
+            <span>{minhaLivre ? 'Sua cor' : 'Outra cor'}</span>
+            <span className="muted small">{minhaLivre ? 'Toque para mudar' : 'Escolha qualquer cor'}</span>
+          </label>
           <Aviso m={msgCor} />
           <p className="muted small" style={{ margin: '10px 0 0' }}>
-            Aparece no ranking, no histórico e no gráfico de peso. A cor de quem está com você fica bloqueada.
+            Aparece no ranking, no histórico e no gráfico de peso. A cor de quem está com você fica bloqueada. Em cor muito clara ou muito escura, o app ajusta o tom para dar para ler no tema claro e no escuro.
           </p>
         </section>
       )}

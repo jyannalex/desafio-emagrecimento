@@ -28,6 +28,7 @@ beforeAll(async () => {
   await db.exec(read('../migrations/0001_init.sql'));
   await db.exec(read('../migrations/0002_qualquer_dia_e_nota_atividade.sql'));
   await db.exec(read('../migrations/0003_fotos_e_cores.sql'));
+  await db.exec(read('../migrations/0004_cor_livre.sql'));
   await db.exec(`
     insert into auth.users (id, email, raw_user_meta_data) values
       ('${A}', 'ana@x.com', '{"nome":"Ana"}'), ('${B}', 'beto@x.com', '{}');
@@ -230,4 +231,12 @@ test('anônimo não vê fotos', async () => {
   } finally {
     await db.exec('reset role;');
   }
+});
+
+test('cor livre: aceita #rrggbb minúsculo, recusa formato errado', async () => {
+  const ok = await as(A, `update profiles set cor = '#3a7bd5' where id = '${A}'`);
+  expect(ok.affectedRows).toBe(1);
+  await expect(as(A, `update profiles set cor = '#3A7BD5' where id = '${A}'`)).rejects.toThrow(/check/);
+  await expect(as(A, `update profiles set cor = '#12345' where id = '${A}'`)).rejects.toThrow(/check/);
+  await expect(as(A, `update profiles set cor = 'red' where id = '${A}'`)).rejects.toThrow(/check/);
 });

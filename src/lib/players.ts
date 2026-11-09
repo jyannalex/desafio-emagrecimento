@@ -1,4 +1,5 @@
-import type { CorId, Profile } from '../types';
+import type { Cor, CorId, Profile } from '../types';
+import { ehHex, paraClaro, paraEscuro, suave, SUPERFICIE_CLARA, SUPERFICIE_ESCURA } from './cores';
 
 /** Paleta que cada um pode escolher. Os valores ficam em styles.css (--c-<id>, claro e escuro). */
 export const CORES: { id: CorId; nome: string }[] = [
@@ -20,10 +21,10 @@ export function playerSlot(profiles: Pick<Profile, 'id'>[], id: string): 1 | 2 {
  * Cor de cada pessoa: a escolhida em Configurações; sem escolha, tangerina para o 1º e mirtilo para o 2º.
  * Nunca deixa os dois com a mesma cor (quem fica sem vai para a próxima livre).
  */
-export function playerColors(profiles: Pick<Profile, 'id' | 'cor'>[]): Map<string, CorId> {
+export function playerColors(profiles: Pick<Profile, 'id' | 'cor'>[]): Map<string, Cor> {
   const ordem = [...profiles].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const usadas = new Set<CorId>();
-  const res = new Map<string, CorId>();
+  const usadas = new Set<Cor>();
+  const res = new Map<string, Cor>();
   for (const p of ordem) {
     if (p.cor && !usadas.has(p.cor)) {
       res.set(p.id, p.cor);
@@ -33,12 +34,17 @@ export function playerColors(profiles: Pick<Profile, 'id' | 'cor'>[]): Map<strin
   const padrao: CorId[] = ['tangerina', 'mirtilo'];
   ordem.forEach((p, i) => {
     if (res.has(p.id)) return;
-    const pref = padrao[i] && !usadas.has(padrao[i]) ? padrao[i] : CORES.find((c) => !usadas.has(c.id))!.id;
+    const pref: Cor = padrao[i] && !usadas.has(padrao[i]) ? padrao[i] : CORES.find((c) => !usadas.has(c.id))!.id;
     res.set(p.id, pref);
     usadas.add(pref);
   });
   return res;
 }
 
-export const playerVar = (cor: CorId) => `var(--c-${cor})`;
-export const playerSoftVar = (cor: CorId) => `var(--c-${cor}-soft)`;
+/** Cor pronta: variável do CSS. Cor livre: light-dark() com uma versão legível para cada tema. */
+export const playerVar = (cor: Cor) => (ehHex(cor) ? `light-dark(${paraClaro(cor)}, ${paraEscuro(cor)})` : `var(--c-${cor})`);
+
+export const playerSoftVar = (cor: Cor) =>
+  ehHex(cor)
+    ? `light-dark(${suave(paraClaro(cor), SUPERFICIE_CLARA)}, ${suave(paraEscuro(cor), SUPERFICIE_ESCURA, 0.22)})`
+    : `var(--c-${cor}-soft)`;
