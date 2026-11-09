@@ -8,6 +8,7 @@ import NavBar from './components/NavBar';
 import { ToastProvider } from './components/Toast';
 import Login from './pages/Login';
 import Hoje from './pages/Hoje';
+import Ranking from './pages/Ranking';
 
 const Placeholder = ({ t }: { t: string }) => (
   <main className="page">
@@ -71,7 +72,7 @@ function Shell() {
         <>
           <Routes>
             <Route path="/" element={<Hoje />} />
-            <Route path="/ranking" element={<Placeholder t="Ranking" />} />
+            <Route path="/ranking" element={<Ranking />} />
             <Route path="/historico" element={<Placeholder t="Histórico" />} />
             <Route path="/peso" element={<Placeholder t="Peso" />} />
             <Route path="/config" element={<Placeholder t="Configurações" />} />
