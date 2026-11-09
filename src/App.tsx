@@ -53,7 +53,7 @@ function Shell() {
     return (
       <main className="page">
         <p className="error">Não foi possível carregar o desafio.</p>
-        <button onClick={reloadChallenge}>Tentar de novo</button>
+        <button className="btn" onClick={reloadChallenge}>Tentar de novo</button>
       </main>
     );
   }

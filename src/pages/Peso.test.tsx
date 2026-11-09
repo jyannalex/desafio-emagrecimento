@@ -44,8 +44,8 @@ test('weightDelta', () => {
 
 test('mostra a variação de cada um', async () => {
   renderPeso();
-  expect(await screen.findByText('Ana: −2,4 kg')).toBeInTheDocument();
-  expect(screen.getByText('Beto: só 1 pesagem')).toBeInTheDocument();
+  expect(await screen.findByLabelText('Ana: −2,4 kg')).toBeInTheDocument();
+  expect(screen.getByLabelText('Beto: só 1 pesagem')).toBeInTheDocument();
 });
 
 test('salva a pesagem com a data de hoje e vírgula decimal', async () => {

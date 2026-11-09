@@ -1,6 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { signIn, signUp } from '../data/auth';
 
+export function BrandMark() {
+  return (
+    <span className="brand-mark" aria-hidden>
+      <i />
+      <i />
+    </span>
+  );
+}
+
 export default function Login() {
   const [criar, setCriar] = useState(false);
   const [nome, setNome] = useState('');
@@ -25,37 +34,42 @@ export default function Login() {
         if (r) setErro(r);
       }
     } catch {
-      setErro('Sem conexão. Tente de novo.');
+      setErro('Sem conexão. Confira a internet e tente de novo.');
     } finally {
       setEnviando(false);
     }
   }
 
-  function alternar(e: React.MouseEvent) {
-    e.preventDefault();
+  function alternar() {
     setCriar(!criar);
     setErro(null);
     setInfo(null);
   }
 
   return (
-    <main className="page">
-      <h1>💪 Desafio</h1>
-      <form className="card" onSubmit={submit}>
-        <h2>{criar ? 'Nova conta' : 'Entrar na conta'}</h2>
+    <main className="page login">
+      <div className="brand">
+        <BrandMark />
+        <span className="display">Desafio</span>
+      </div>
+      <p className="lead">Vocês dois, um placar. Marque o dia e veja quem está na frente.</p>
+
+      <form className="panel" onSubmit={submit}>
+        <h2>{criar ? 'Criar sua conta' : 'Entrar'}</h2>
         {criar && (
           <label className="field">
-            <span>Nome</span>
-            <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} required autoComplete="nickname" />
+            <span>Como quer ser chamado</span>
+            <input className="input" type="text" value={nome} onChange={(e) => setNome(e.target.value)} required autoComplete="nickname" />
           </label>
         )}
         <label className="field">
           <span>E-mail</span>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </label>
         <label className="field">
           <span>Senha</span>
           <input
+            className="input"
             type="password"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
@@ -64,17 +78,18 @@ export default function Login() {
             autoComplete={criar ? 'new-password' : 'current-password'}
           />
         </label>
-        {erro && <p className="error">{erro}</p>}
-        {info && <p className="muted">{info}</p>}
-        <button className="primary" type="submit" disabled={enviando} style={{ width: '100%' }}>
+        {erro && <p className="form-msg error">{erro}</p>}
+        {info && <p className="form-msg muted">{info}</p>}
+        <button className="btn primary block" type="submit" disabled={enviando}>
           {criar ? 'Criar conta' : 'Entrar'}
         </button>
       </form>
-      <p className="muted" style={{ textAlign: 'center' }}>
-        {criar ? 'Já tem conta? ' : 'Primeira vez? '}
-        <a href="#" onClick={alternar}>
-          {criar ? 'Fazer login' : 'Criar uma conta'}
-        </a>
+
+      <p className="muted small" style={{ textAlign: 'center' }}>
+        {criar ? 'Já tem conta?' : 'Primeira vez aqui?'}{' '}
+        <button type="button" className="btn ghost" style={{ minHeight: 0, padding: 4, color: 'var(--ink)' }} onClick={alternar}>
+          {criar ? 'Entrar' : 'Criar uma conta'}
+        </button>
       </p>
     </main>
   );

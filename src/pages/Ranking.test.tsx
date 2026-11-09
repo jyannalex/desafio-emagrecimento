@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
 import * as dates from '../lib/dates';
@@ -38,15 +38,17 @@ beforeEach(() => {
 
 test('em andamento mostra placar de cada um e dias restantes', async () => {
   renderRanking('2026-11-08');
-  const ana = await screen.findByTestId('placar-a');
-  expect(within(ana).getByText('Ana')).toBeInTheDocument();
-  expect(within(ana).getByTestId('total')).toHaveTextContent('3 pts · 13%');
-  expect(within(ana).getByTestId('semana')).toHaveTextContent('3 pts · 13%');
-  expect(within(ana).getByTestId('hoje')).toHaveTextContent('2 pts · 33%');
-  const beto = screen.getByTestId('placar-b');
-  expect(within(beto).getByTestId('total')).toHaveTextContent('4 pts · 17%');
+  expect(await screen.findByLabelText('Ana, total: 3 pontos, 13%')).toBeInTheDocument();
+  expect(screen.getByLabelText('Ana, semana: 3 pontos, 13%')).toBeInTheDocument();
+  expect(screen.getByLabelText('Ana, hoje: 2 pontos, 33%')).toBeInTheDocument();
+  expect(screen.getByLabelText('Beto, total: 4 pontos, 17%')).toBeInTheDocument();
   expect(screen.getByText('Faltam 12 dias')).toBeInTheDocument();
   expect(screen.getByText(/Beto na frente/)).toBeInTheDocument();
+});
+
+test('barra do duelo divide pelos pontos', async () => {
+  renderRanking('2026-11-08');
+  expect(await screen.findByRole('img', { name: 'Ana 3 × 4 Beto' })).toBeInTheDocument();
 });
 
 test('antes de começar', async () => {

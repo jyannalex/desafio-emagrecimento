@@ -95,3 +95,12 @@ test('sair', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Sair' }));
   expect(auth.signOut).toHaveBeenCalled();
 });
+
+test('tema escuro aplica no app e fica marcado', async () => {
+  renderConfig({ id: 1, nome: 'Verão', data_inicio: '2026-11-10', data_fim: '2027-02-07' });
+  await userEvent.click(await screen.findByRole('button', { name: 'Escuro' }));
+  expect(document.documentElement.dataset.theme).toBe('dark');
+  expect(screen.getByRole('button', { name: 'Escuro' })).toHaveAttribute('aria-pressed', 'true');
+  await userEvent.click(screen.getByRole('button', { name: 'Automático' }));
+  expect(document.documentElement.dataset.theme).toBeUndefined();
+});

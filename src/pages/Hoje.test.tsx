@@ -38,7 +38,7 @@ test('mostra as tarefas do dia e 0/6', async () => {
     expect(await screen.findByLabelText(t)).toBeInTheDocument();
   }
   expect(screen.getByText('Água')).toBeInTheDocument();
-  expect(screen.getByText('0/6')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '0 de 6 pontos' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Hoje' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Ontem' })).toBeInTheDocument();
 });
@@ -48,7 +48,7 @@ test('marcar café soma 1 ponto e grava', async () => {
   const cafe = await screen.findByLabelText('Café da manhã');
   await waitFor(() => expect(cafe).not.toBeDisabled());
   await userEvent.click(cafe);
-  expect(screen.getByText('1/6')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '1 de 6 pontos' })).toBeInTheDocument();
   await waitFor(() => expect(repo.upsertLog).toHaveBeenCalledWith(expect.objectContaining({ cafe: true, dia: hoje })));
 });
 
@@ -59,7 +59,7 @@ test('bater a meta de água soma ponto', async () => {
   await waitFor(() => expect(mais).not.toBeDisabled());
   await userEvent.click(mais);
   expect(screen.getByText('500 / 500 ml')).toBeInTheDocument();
-  expect(screen.getByText('1/6')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '1 de 6 pontos' })).toBeInTheDocument();
 });
 
 test('nota da refeição grava ao sair do campo', async () => {

@@ -1,4 +1,4 @@
-import { addDays, daysInclusive, formatBR, isEditable, todayBR, weekStart } from './dates';
+import { addDays, daysInclusive, formatBR, formatLong, formatShort, isEditable, todayBR, weekStart } from './dates';
 
 test('todayBR respeita fuso', () => {
   expect(todayBR(new Date('2026-11-09T02:30:00Z'))).toBe('2026-11-08'); // 23:30 BRT
@@ -41,4 +41,9 @@ test('todayBR não depende do formato de data do locale', () => {
   } finally {
     spy.mockRestore();
   }
+});
+
+test('formatLong por extenso em português', () => {
+  expect(formatLong('2026-11-09')).toBe('segunda-feira, 9 de novembro');
+  expect(formatShort('2026-11-06')).toBe('6 de novembro');
 });

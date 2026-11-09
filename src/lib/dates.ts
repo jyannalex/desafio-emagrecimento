@@ -55,3 +55,15 @@ export function formatBR(day: string): string {
   const [y, m, d] = day.split('-');
   return `${d}/${m}/${y}`;
 }
+
+const longFmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+const shortFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+const weekdayFmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', timeZone: 'UTC' });
+const at = (day: string) => new Date(`${day}T12:00:00Z`);
+
+/** 'segunda-feira, 9 de novembro' */
+export const formatLong = (day: string) => longFmt.format(at(day));
+/** '6 de novembro' */
+export const formatShort = (day: string) => shortFmt.format(at(day));
+/** 'sexta-feira' */
+export const formatWeekday = (day: string) => weekdayFmt.format(at(day));
