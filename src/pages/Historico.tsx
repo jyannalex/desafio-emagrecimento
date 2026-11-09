@@ -10,7 +10,7 @@ import type { DailyLog, Profile } from '../types';
 const REFEICOES: { key: 'cafe' | 'almoco' | 'lanche' | 'jantar'; nota: 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar'; label: string }[] = [
   { key: 'cafe', nota: 'nota_cafe', label: 'Café da manhã' },
   { key: 'almoco', nota: 'nota_almoco', label: 'Almoço' },
-  { key: 'lanche', nota: 'nota_lanche', label: 'Lanche' },
+  { key: 'lanche', nota: 'nota_lanche', label: 'Lanche (sem ponto)' },
   { key: 'jantar', nota: 'nota_jantar', label: 'Jantar' },
 ];
 

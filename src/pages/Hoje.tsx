@@ -11,10 +11,10 @@ import type { Challenge } from '../types';
 type MealKey = 'cafe' | 'almoco' | 'lanche' | 'jantar';
 type NoteKey = 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar';
 
-const MEALS: { key: MealKey; note: NoteKey; label: string; noteLabel: string }[] = [
+const MEALS: { key: MealKey; note: NoteKey; label: string; noteLabel: string; semPonto?: boolean }[] = [
   { key: 'cafe', note: 'nota_cafe', label: 'Café da manhã', noteLabel: 'O que comeu no café da manhã' },
   { key: 'almoco', note: 'nota_almoco', label: 'Almoço', noteLabel: 'O que comeu no almoço' },
-  { key: 'lanche', note: 'nota_lanche', label: 'Lanche', noteLabel: 'O que comeu no lanche' },
+  { key: 'lanche', note: 'nota_lanche', label: 'Lanche', noteLabel: 'O que comeu no lanche', semPonto: true },
   { key: 'jantar', note: 'nota_jantar', label: 'Jantar', noteLabel: 'O que comeu no jantar' },
 ];
 
@@ -150,7 +150,8 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
   const { log, loading, loadError, reload, update, addAgua, addAtividade } = useDailyLog(userId, dia, meta, editable);
   const off = !editable || loading || loadError;
   const pts = dayPoints(log);
-  const refeicoes = MEALS.filter((m) => log[m.key]).length;
+  const pontuaveis = MEALS.filter((m) => !m.semPonto);
+  const refeicoes = pontuaveis.filter((m) => log[m.key]).length;
   const pctAgua = Math.min(100, Math.round((log.agua_ml / log.meta_agua_ml_do_dia) * 100));
   const aguaOk = log.agua_ml >= log.meta_agua_ml_do_dia;
   const pctAtividade = Math.min(100, Math.round((log.atividade_min / ATIVIDADE_META_MIN) * 100));
@@ -180,7 +181,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
       <section className="panel">
         <div className="panel-title">
           <h2>Refeições</h2>
-          <span className="muted small">{refeicoes} de 4 na dieta</span>
+          <span className="muted small">{refeicoes} de {pontuaveis.length} na dieta</span>
         </div>
         <ul className="tasks">
           {MEALS.map((m) => (
@@ -195,6 +196,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
                   onChange={(e) => update({ [m.key]: e.target.checked })}
                 />
                 <span className="task-name">{m.label}</span>
+                {m.semPonto && <span className="tag">sem ponto</span>}
               </label>
               <div className="task-sub">
                 <Nota label={m.noteLabel} value={log[m.note]} disabled={off} onSave={(v) => update({ [m.note]: v })} />

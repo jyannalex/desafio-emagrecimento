@@ -6,12 +6,13 @@ const log = (dia: string, p: Partial<DailyLog>) =>
   ({ ...base, user_id: 'a', dia, nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, atividade_min: 0, ...p }) as DailyLog;
 const ch = { id: 1 as const, nome: 'x', data_inicio: '2026-11-05', data_fim: '2026-11-20' };
 
-test('MAX_POINTS é 6', () => expect(MAX_POINTS).toBe(6));
+test('MAX_POINTS é 5 (lanche não pontua)', () => expect(MAX_POINTS).toBe(5));
 
 test('dayPoints', () => {
   expect(dayPoints(null)).toBe(0);
   expect(dayPoints(base)).toBe(0);
-  expect(dayPoints({ ...base, cafe: true, almoco: true, lanche: true, jantar: true, atividade_min: 60, agua_ml: 2000 })).toBe(6);
+  expect(dayPoints({ ...base, cafe: true, almoco: true, lanche: true, jantar: true, atividade_min: 60, agua_ml: 2000 })).toBe(5);
+  expect(dayPoints({ ...base, lanche: true })).toBe(0);
   expect(dayPoints({ ...base, agua_ml: 1999 })).toBe(0);
   expect(ATIVIDADE_META_MIN).toBe(60);
   expect(dayPoints({ ...base, atividade_min: 59 })).toBe(0);
@@ -29,7 +30,7 @@ test('semana cruza o início do desafio', () => {
   // hoje = domingo 2026-11-08; semana 02..08, mas desafio começa 05
   const logs = [log('2026-11-04', { cafe: true }), log('2026-11-05', { cafe: true }), log('2026-11-08', { cafe: true, almoco: true })];
   const s = standing(logs, ch, '2026-11-08');
-  expect(s.week).toEqual({ points: 3, days: 4, pct: 13 }); // 3/(6*4)=12.5 -> 13
+  expect(s.week).toEqual({ points: 3, days: 4, pct: 15 }); // 3/(5*4)=15
   expect(s.total.points).toBe(3);
   expect(s.today.points).toBe(2);
   expect(s.status).toBe('andamento');

@@ -32,13 +32,13 @@ beforeEach(() => {
 
 const ativo = { id: 1 as const, nome: 'X', data_inicio: addDays(hoje, -30), data_fim: addDays(hoje, 30) };
 
-test('mostra as tarefas do dia e 0/6', async () => {
+test('mostra as tarefas do dia e 0/5', async () => {
   renderHoje(ativo);
   for (const t of ['Café da manhã', 'Almoço', 'Lanche', 'Jantar']) {
     expect(await screen.findByLabelText(t)).toBeInTheDocument();
   }
   expect(screen.getByText('Água')).toBeInTheDocument();
-  expect(screen.getByRole('img', { name: '0 de 6 pontos' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '0 de 5 pontos' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Dia anterior' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Próximo dia' })).toBeDisabled();
   expect(screen.getByLabelText('Escolher data')).toHaveValue(hoje);
@@ -49,7 +49,7 @@ test('marcar café soma 1 ponto e grava', async () => {
   const cafe = await screen.findByLabelText('Café da manhã');
   await waitFor(() => expect(cafe).not.toBeDisabled());
   await userEvent.click(cafe);
-  expect(screen.getByRole('img', { name: '1 de 6 pontos' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '1 de 5 pontos' })).toBeInTheDocument();
   await waitFor(() => expect(repo.upsertLog).toHaveBeenCalledWith(expect.objectContaining({ cafe: true, dia: hoje })));
 });
 
@@ -60,7 +60,7 @@ test('bater a meta de água soma ponto', async () => {
   await waitFor(() => expect(mais).not.toBeDisabled());
   await userEvent.click(mais);
   expect(screen.getByText('500 / 500 ml')).toBeInTheDocument();
-  expect(screen.getByRole('img', { name: '1 de 6 pontos' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '1 de 5 pontos' })).toBeInTheDocument();
 });
 
 test('nota da refeição grava ao sair do campo', async () => {
@@ -129,11 +129,22 @@ test('atividade soma minutos com botões e pontua só com 1 hora', async () => {
   await userEvent.click(mais10);
   await userEvent.click(screen.getByRole('button', { name: '+30 min' }));
   expect(screen.getByText('40 / 60 min')).toBeInTheDocument();
-  expect(screen.getByRole('img', { name: '0 de 6 pontos' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '0 de 5 pontos' })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '+1 h' }));
   expect(screen.getByText('100 / 60 min')).toBeInTheDocument();
-  expect(screen.getByRole('img', { name: '1 de 6 pontos' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '1 de 5 pontos' })).toBeInTheDocument();
   await waitFor(() =>
     expect(repo.upsertLog).toHaveBeenLastCalledWith(expect.objectContaining({ atividade_min: 100, atividade: true })),
   );
+});
+
+test('lanche grava mas não vale ponto', async () => {
+  renderHoje(ativo);
+  const lanche = await screen.findByLabelText('Lanche');
+  await waitFor(() => expect(lanche).not.toBeDisabled());
+  expect(screen.getByText('sem ponto')).toBeInTheDocument();
+  await userEvent.click(lanche);
+  expect(screen.getByRole('img', { name: '0 de 5 pontos' })).toBeInTheDocument();
+  expect(screen.getByText('0 de 3 na dieta')).toBeInTheDocument();
+  await waitFor(() => expect(repo.upsertLog).toHaveBeenCalledWith(expect.objectContaining({ lanche: true })));
 });

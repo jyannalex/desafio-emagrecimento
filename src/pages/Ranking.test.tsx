@@ -32,16 +32,16 @@ beforeEach(() => {
   vi.mocked(repo.getLogs).mockResolvedValue([
     log('a', '2026-11-05', { cafe: true }),
     log('a', '2026-11-08', { cafe: true, almoco: true }),
-    log('b', '2026-11-06', { cafe: true, almoco: true, lanche: true, jantar: true }),
+    log('b', '2026-11-06', { cafe: true, almoco: true, lanche: true, jantar: true, atividade_min: 60 }),
   ]);
 });
 
 test('em andamento mostra placar de cada um e dias restantes', async () => {
   renderRanking('2026-11-08');
-  expect(await screen.findByLabelText('Ana, total: 3 pontos, 13%')).toBeInTheDocument();
-  expect(screen.getByLabelText('Ana, semana: 3 pontos, 13%')).toBeInTheDocument();
-  expect(screen.getByLabelText('Ana, hoje: 2 pontos, 33%')).toBeInTheDocument();
-  expect(screen.getByLabelText('Beto, total: 4 pontos, 17%')).toBeInTheDocument();
+  expect(await screen.findByLabelText('Ana, total: 3 pontos, 15%')).toBeInTheDocument();
+  expect(screen.getByLabelText('Ana, semana: 3 pontos, 15%')).toBeInTheDocument();
+  expect(screen.getByLabelText('Ana, hoje: 2 pontos, 40%')).toBeInTheDocument();
+  expect(screen.getByLabelText('Beto, total: 4 pontos, 20%')).toBeInTheDocument();
   expect(screen.getByText('Faltam 12 dias')).toBeInTheDocument();
   expect(screen.getByText(/Beto na frente/)).toBeInTheDocument();
 });

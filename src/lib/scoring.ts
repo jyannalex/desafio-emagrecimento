@@ -1,19 +1,19 @@
 import type { Challenge, DailyLog } from '../types';
 import { addDays, daysInclusive, weekStart } from './dates';
 
-export const MAX_POINTS = 6;
+/** Café, almoço, jantar, atividade e água. O lanche é registrado mas não vale ponto. */
+export const MAX_POINTS = 5;
 /** Minutos de atividade no dia para ganhar o ponto. */
 export const ATIVIDADE_META_MIN = 60;
 
-type PointFields = Pick<DailyLog, 'cafe' | 'almoco' | 'lanche' | 'jantar' | 'atividade_min' | 'agua_ml' | 'meta_agua_ml_do_dia'> &
-  Partial<Pick<DailyLog, 'atividade'>>;
+type PointFields = Pick<DailyLog, 'cafe' | 'almoco' | 'jantar' | 'atividade_min' | 'agua_ml' | 'meta_agua_ml_do_dia'> &
+  Partial<Pick<DailyLog, 'atividade' | 'lanche'>>;
 
 export function dayPoints(log: PointFields | null | undefined): number {
   if (!log) return 0;
   const checks = [
     log.cafe,
     log.almoco,
-    log.lanche,
     log.jantar,
     log.atividade_min >= ATIVIDADE_META_MIN,
     log.agua_ml >= log.meta_agua_ml_do_dia,

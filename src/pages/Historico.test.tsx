@@ -40,10 +40,10 @@ test('lista os dias do mais recente ao início com pontos de cada um', async () 
   renderHist('2026-11-07');
   const dias = await screen.findAllByTestId(/^dia-/);
   expect(dias.map((d) => d.dataset.testid)).toEqual(['dia-2026-11-07', 'dia-2026-11-06', 'dia-2026-11-05']);
-  expect(within(dias[0]).getByLabelText('Ana: 0 de 6')).toBeInTheDocument();
-  expect(within(dias[0]).getByLabelText('Beto: 1 de 6')).toBeInTheDocument();
-  expect(within(dias[1]).getByLabelText('Ana: 2 de 6')).toBeInTheDocument();
-  expect(within(dias[2]).getByLabelText('Beto: 0 de 6')).toBeInTheDocument();
+  expect(within(dias[0]).getByLabelText('Ana: 0 de 5')).toBeInTheDocument();
+  expect(within(dias[0]).getByLabelText('Beto: 1 de 5')).toBeInTheDocument();
+  expect(within(dias[1]).getByLabelText('Ana: 2 de 5')).toBeInTheDocument();
+  expect(within(dias[2]).getByLabelText('Beto: 0 de 5')).toBeInTheDocument();
 });
 
 test('tocar no dia mostra os detalhes com notas', async () => {

@@ -13,17 +13,18 @@ Site para um casal (2 pessoas) acompanhar um desafio de emagrecimento com prazo 
 
 ## 2. Regras do desafio
 
-### 2.1 Tarefas e pontos (máximo de 6 por dia)
+### 2.1 Tarefas e pontos (máximo de 5 por dia)
 
 | Tarefa | Ponto |
 |---|---|
 | Café da manhã na dieta (✅) | 1 |
 | Almoço na dieta (✅) | 1 |
-| Lanche na dieta (✅) | 1 |
+| Lanche (✅, só registro) | 0 |
 | Jantar na dieta (✅) | 1 |
 | Atividade física: `atividade_min >= 60` no dia | 1 |
 | Água: `agua_ml >= meta_agua_ml_do_dia` | 1 |
 
+- O lanche continua registrável (✅ e nota), mas **não vale ponto**. *(Alterado em 2026-11-09 a pedido do usuário; o máximo passou de 6 para 5 e vale para todos os dias, inclusive os já registrados.)*
 - Cada refeição tem um campo de texto **opcional** para anotar o que foi comido. Não há foto.
 - A atividade é somada por botões (−10, +10 min, +30 min, +1 h), igual à água. O ponto vem só dos minutos: **60 ou mais no dia**. A coluna `atividade` fica sincronizada (`atividade_min >= 60`) mas não é usada no cálculo. *(Alterado em 2026-11-09 a pedido do usuário; antes o ponto vinha de um ✅.)*
 - Cada pessoa define a própria meta de água em ml (padrão 2000). Na primeira gravação do dia, a meta vigente é copiada para o registro do dia (`meta_agua_ml_do_dia`). Mudar a meta depois não altera os dias já registrados.
