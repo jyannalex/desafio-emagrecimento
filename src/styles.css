@@ -522,3 +522,7 @@ button.item-row:hover .item-nome { color: var(--ink); text-decoration: underline
   margin: -6px 0 18px; padding: 10px 14px; border-radius: var(--r-md);
   background: var(--surface); box-shadow: var(--shadow); font-weight: 700;
 }
+.folha { overflow-y: auto; }
+.busca-atalho { align-self: flex-start; color: var(--me); padding-left: 2px; }
+.form-alimento .viewer-actions:has(> :only-child) { grid-template-columns: 1fr; }
+.itens-dir { display: flex; align-items: center; gap: 12px; }

@@ -107,11 +107,11 @@ test('aceita vírgula nas gramas e trava o 0', async () => {
   expect(repo.addMealItem).toHaveBeenCalledWith(expect.objectContaining({ gramas: 120.5 }));
 });
 
-test('busca sem resultado leva ao cadastro e volta para as gramas do novo alimento', async () => {
+test('busca sem resultado já mostra o cadastro ali mesmo e volta para as gramas do novo alimento', async () => {
   renderAlmoco();
   const dlg = await abrirBusca();
   await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'marmita da tia');
-  await userEvent.click(within(dlg).getByRole('button', { name: 'Cadastrar "marmita da tia"' }));
+  expect(within(dlg).getByText('Nenhum alimento com esse nome. Cadastre aqui:')).toBeInTheDocument();
   expect(within(dlg).getByLabelText('Nome')).toHaveValue('Marmita da tia');
   await userEvent.type(within(dlg).getByLabelText('Calorias (kcal)'), '120');
   await userEvent.clear(within(dlg).getByLabelText('Em quantos gramas'));
@@ -121,6 +121,17 @@ test('busca sem resultado leva ao cadastro e volta para as gramas do novo alimen
   expect(repo.createFood).toHaveBeenCalledWith({ nome: 'Marmita da tia', kcal_100g: 400, criado_por: 'u1' });
   expect(await within(dlg).findByLabelText('Gramas')).toBeInTheDocument();
   expect(within(dlg).getByText('Marmita da tia')).toBeInTheDocument();
+});
+
+test('com resultados, o atalho de cadastrar fica antes da lista', async () => {
+  renderAlmoco();
+  const dlg = await abrirBusca();
+  await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
+  const atalho = within(dlg).getByRole('button', { name: 'Não achou? Cadastrar "arroz"' });
+  const primeiro = within(dlg).getByRole('button', { name: /Arroz branco cozido/ });
+  expect(atalho.compareDocumentPosition(primeiro) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  await userEvent.click(atalho);
+  expect(within(dlg).getByLabelText('Nome')).toHaveValue('Arroz');
 });
 
 test('editar gramas de um item e depois remover', async () => {

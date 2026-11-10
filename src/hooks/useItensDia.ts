@@ -35,16 +35,19 @@ export function useItensDia(userId: string, dia: string) {
   const recarregar = useCallback(() => setTentativa((t) => t + 1), []);
 
   const adicionar = useCallback(
-    async (refeicao: Refeicao, food: Food, gramas: number) => {
+    /** true se o banco gravou. */
+    async (refeicao: Refeicao, food: Food, gramas: number): Promise<boolean> => {
       const novo: Omit<MealItem, 'id'> = { user_id: userId, dia, refeicao, food_id: food.id, nome: food.nome, kcal_100g: food.kcal_100g, gramas };
       const idTemp = --temp.current;
       setItens((l) => [...l, { ...novo, id: idTemp }]);
       try {
         const salvo = await addMealItem(novo);
         setItens((l) => l.map((i) => (i.id === idTemp ? salvo : i)));
+        return true;
       } catch {
         setItens((l) => l.filter((i) => i.id !== idTemp));
         toast(ERRO);
+        return false;
       }
     },
     [userId, dia, toast],

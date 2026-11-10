@@ -41,6 +41,9 @@ export function ItensRefeicao({
   onAdicionar,
   onMudar,
   onRemover,
+  buscando: buscandoFora,
+  onBuscando,
+  extra,
 }: {
   userId: string;
   rotulo: string;
@@ -49,10 +52,17 @@ export function ItensRefeicao({
   onAdicionar: (food: Food, gramas: number) => void;
   onMudar: (id: number, gramas: number) => void;
   onRemover: (id: number) => void;
+  /** Para abrir a busca de fora (ex.: ao marcar a refeição). Sem isso, controla sozinho. */
+  buscando?: boolean;
+  onBuscando?: (v: boolean) => void;
+  /** Fica no rodapé, à direita (ex.: a foto da refeição). */
+  extra?: ReactNode;
 }) {
-  const [buscando, setBuscando] = useState(false);
+  const [buscandoDentro, setBuscandoDentro] = useState(false);
+  const buscando = buscandoFora ?? buscandoDentro;
+  const setBuscando = onBuscando ?? setBuscandoDentro;
   const [editando, setEditando] = useState<MealItem | null>(null);
-  if (!itens.length && !podeEditar) return null;
+  if (!itens.length && !podeEditar && !extra) return null;
 
   return (
     <div className="itens">
@@ -89,7 +99,10 @@ export function ItensRefeicao({
         ) : (
           <span />
         )}
-        {itens.length > 0 && <span className="itens-total">{formatKcal(somaKcal(itens))}</span>}
+        <span className="itens-dir">
+          {itens.length > 0 && <span className="itens-total">{formatKcal(somaKcal(itens))}</span>}
+          {extra}
+        </span>
       </div>
 
       {buscando && (
@@ -128,6 +141,14 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
   const toast = useToast();
   const [termo, setTermo] = useState('');
   const [etapa, setEtapa] = useState<Etapa>({ tipo: 'busca' });
+  const salvarNovo = async (nome: string, kcal: number, g: number) => {
+    try {
+      const novo = await al.cadastrar(nome, kcal, g);
+      setEtapa({ tipo: 'gramas', food: novo });
+    } catch {
+      toast('Não foi salvo, tente de novo');
+    }
+  };
   const achados = useMemo(() => (al.catalogo ? buscarAlimentos(al.catalogo, termo, al.recentes) : []), [al.catalogo, al.recentes, termo]);
 
   let corpo: ReactNode;
@@ -149,14 +170,7 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
       <FormAlimento
         inicial={{ nome: etapa.nome }}
         onCancelar={() => setEtapa({ tipo: 'busca' })}
-        onSalvar={async (nome, kcal, g) => {
-          try {
-            const novo = await al.cadastrar(nome, kcal, g);
-            setEtapa({ tipo: 'gramas', food: novo });
-          } catch {
-            toast('Não foi salvo, tente de novo');
-          }
-        }}
+        onSalvar={salvarNovo}
       />
     );
   } else if (al.erro) {
@@ -186,7 +200,17 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
         ) : (
           <>
             {vazio && <p className="muted small busca-titulo">{achados.length ? 'Usados recentemente' : 'Digite para buscar'}</p>}
-            {!vazio && !achados.length && <p className="muted small busca-titulo">Nenhum alimento com esse nome</p>}
+            {!vazio && achados.length > 0 && (
+              <button type="button" className="btn ghost small busca-atalho" onClick={() => setEtapa({ tipo: 'cadastro', nome: maiuscula(termo.trim()) })}>
+                Não achou? Cadastrar "{termo.trim()}"
+              </button>
+            )}
+            {!vazio && !achados.length && (
+              <>
+                <p className="small busca-titulo">Nenhum alimento com esse nome. Cadastre aqui:</p>
+                <FormAlimento key={termo.trim()} inicial={{ nome: maiuscula(termo.trim()) }} onSalvar={salvarNovo} />
+              </>
+            )}
             <ul className="busca-lista">
               {achados.map((f) => (
                 <li key={f.id}>
@@ -197,11 +221,6 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
                 </li>
               ))}
             </ul>
-            {!vazio && (
-              <button type="button" className="btn ghost" onClick={() => setEtapa({ tipo: 'cadastro', nome: maiuscula(termo.trim()) })}>
-                Cadastrar "{termo.trim()}"
-              </button>
-            )}
           </>
         )}
       </>
@@ -286,7 +305,7 @@ export function FormAlimento({
 }: {
   inicial?: { nome: string; kcal_100g?: number };
   onSalvar: (nome: string, kcal: number, gramas: number) => Promise<void> | void;
-  onCancelar: () => void;
+  onCancelar?: () => void;
 }) {
   const [nome, setNome] = useState(inicial?.nome ?? '');
   const [kcal, setKcal] = useState(inicial?.kcal_100g !== undefined ? paraCampo(inicial.kcal_100g) : '');
@@ -330,9 +349,11 @@ export function FormAlimento({
       </div>
       {por100 !== null && (kcalOk ? <p className="small">= {formatKcal(por100)} em 100 g</p> : <p className="small danger-text">Passa de 900 kcal em 100 g, confira os números</p>)}
       <div className="viewer-actions">
-        <button type="button" className="btn ghost" onClick={onCancelar}>
-          Cancelar
-        </button>
+        {onCancelar && (
+          <button type="button" className="btn ghost" onClick={onCancelar}>
+            Cancelar
+          </button>
+        )}
         <button type="submit" className="btn primary" disabled={!ok}>
           Salvar alimento
         </button>

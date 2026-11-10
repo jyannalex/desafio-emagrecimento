@@ -156,6 +156,8 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
   const off = !editable || loading || loadError;
   const fotos = useFotos(userId, dia);
   const comida = useItensDia(userId, dia);
+  // busca aberta em qual refeição; marcar = abriu pelo círculo (só marca depois de adicionar)
+  const [busca, setBusca] = useState<{ key: MealKey; marcar: boolean } | null>(null);
   const foto = (t: MealKey | 'atividade', rotulo: string) => (
     <FotoTarefa
       rotulo={rotulo}
@@ -224,25 +226,31 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
                   type="checkbox"
                   aria-label={m.label}
                   checked={log[m.key]}
-                  disabled={off}
-                  onChange={(e) => update({ [m.key]: e.target.checked })}
+                  disabled={off || !comida.carregado}
+                  onChange={(e) => {
+                    const semAlimento = !comida.itens.some((i) => i.refeicao === m.key);
+                    if (e.target.checked && semAlimento) setBusca({ key: m.key, marcar: true });
+                    else update({ [m.key]: e.target.checked });
+                  }}
                 />
                 <span className="task-name">{m.label}</span>
                 {m.semPonto && <span className="tag">sem ponto</span>}
               </label>
-              <div className="task-sub note-row">
-                <Nota label={m.noteLabel} value={log[m.note]} disabled={off} onSave={(v) => update({ [m.note]: v })} />
-                {foto(m.key, m.foto)}
-              </div>
               <div className="task-sub">
                 <ItensRefeicao
                   userId={userId}
                   rotulo={m.foto.slice(3)}
                   itens={comida.itens.filter((i) => i.refeicao === m.key)}
                   podeEditar={editable && comida.carregado}
-                  onAdicionar={(food, g) => comida.adicionar(m.key, food, g)}
+                  onAdicionar={async (food, g) => {
+                    const marcar = busca?.key === m.key && busca.marcar;
+                    if ((await comida.adicionar(m.key, food, g)) && marcar) update({ [m.key]: true });
+                  }}
                   onMudar={comida.mudarGramas}
                   onRemover={comida.remover}
+                  buscando={busca?.key === m.key}
+                  onBuscando={(v) => setBusca(v ? { key: m.key, marcar: false } : null)}
+                  extra={foto(m.key, m.foto)}
                 />
               </div>
             </li>

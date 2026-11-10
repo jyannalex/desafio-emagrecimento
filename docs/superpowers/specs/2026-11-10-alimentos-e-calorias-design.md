@@ -7,8 +7,13 @@ Data: 2026-11-10. Complementa `2026-11-08-desafio-emagrecimento-design.md`.
 Registrar o que foi comido em cada refeição, em gramas, e ver as calorias por refeição e do dia.
 O app já vem com os alimentos da tabela TACO, e cada um pode cadastrar o que faltar.
 
-**Calorias são só informação.** Não mudam pontos, ranking nem o ✅ "na dieta" (que continua manual).
-Registrar ou apagar itens não marca nem desmarca nada.
+**Calorias são só informação.** Não mudam pontos nem ranking.
+
+**Atualizado em 2026-11-10 (pedido do usuário):** a refeição só pode ser marcada com pelo menos um alimento.
+Tocar no ✅ de uma refeição sem alimento abre a busca, e o ✅ só é marcado depois que o alimento é gravado; fechar a busca deixa desmarcado.
+Com alimento, o ✅ marca e desmarca normalmente (desmarcar = fugiu da dieta). Adicionar pelo "+ Alimento" não marca sozinho.
+O campo "anotar o que comeu" saiu da tela Hoje (anotações antigas continuam no Histórico).
+Busca sem resultado já mostra o formulário de cadastro; com resultados, "Não achou? Cadastrar" fica antes da lista.
 
 ## 2. Regras
 

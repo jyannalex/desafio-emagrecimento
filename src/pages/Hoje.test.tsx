@@ -54,7 +54,10 @@ test('mostra as tarefas do dia e 0/5', async () => {
   expect(screen.getByLabelText('Escolher data')).toHaveValue(hoje);
 });
 
-test('marcar café soma 1 ponto e grava', async () => {
+test('marcar café (que já tem alimento) soma 1 ponto e grava', async () => {
+  vi.mocked(repo.getMealItems).mockResolvedValue([
+    { id: 5, user_id: 'u1', dia: hoje, refeicao: 'cafe', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50 },
+  ]);
   renderHoje(ativo);
   const cafe = await screen.findByLabelText('Café da manhã');
   await waitFor(() => expect(cafe).not.toBeDisabled());
@@ -73,15 +76,11 @@ test('bater a meta de água soma ponto', async () => {
   expect(screen.getByRole('img', { name: '1 de 5 pontos' })).toBeInTheDocument();
 });
 
-test('nota da refeição grava ao sair do campo', async () => {
+test('refeições não têm mais o campo de anotar', async () => {
   renderHoje(ativo);
-  const nota = await screen.findByLabelText('O que comeu no almoço');
-  await waitFor(() => expect(nota).not.toBeDisabled());
-  await userEvent.type(nota, 'frango e salada');
-  await userEvent.tab();
-  await waitFor(() =>
-    expect(repo.upsertLog).toHaveBeenCalledWith(expect.objectContaining({ nota_almoco: 'frango e salada' })),
-  );
+  await screen.findByLabelText('Almoço');
+  expect(screen.queryByLabelText('O que comeu no almoço')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Adicionar foto do almoço')).toBeInTheDocument();
 });
 
 test('não volta antes do início do desafio nem passa de hoje', async () => {
@@ -94,6 +93,9 @@ test('não volta antes do início do desafio nem passa de hoje', async () => {
 });
 
 test('volta um dia e depois escolhe uma data antiga, ambos editáveis', async () => {
+  vi.mocked(repo.getMealItems).mockImplementation(async (d) => [
+    { id: 5, user_id: 'u1', dia: d, refeicao: 'cafe', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50 },
+  ]);
   renderHoje(ativo);
   await userEvent.click(await screen.findByRole('button', { name: 'Dia anterior' }));
   expect(await screen.findByRole('heading', { name: 'Ontem' })).toBeInTheDocument();
@@ -149,6 +151,9 @@ test('atividade soma minutos com botões e pontua só com 1 hora', async () => {
 });
 
 test('lanche grava mas não vale ponto', async () => {
+  vi.mocked(repo.getMealItems).mockResolvedValue([
+    { id: 5, user_id: 'u1', dia: hoje, refeicao: 'lanche', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50 },
+  ]);
   renderHoje(ativo);
   const lanche = await screen.findByLabelText('Lanche');
   await waitFor(() => expect(lanche).not.toBeDisabled());
@@ -266,4 +271,57 @@ test('se os alimentos do dia não carregam, avisa e não deixa lançar até carr
   await userEvent.click(screen.getByRole('button', { name: 'Carregar alimentos de novo' }));
   expect(await screen.findByText('154 kcal hoje')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Adicionar alimento no almoço' })).toBeInTheDocument();
+});
+
+test('marcar refeição sem alimento abre a busca e só marca depois de adicionar', async () => {
+  renderHoje(ativo);
+  const almoco = await screen.findByLabelText('Almoço');
+  await waitFor(() => expect(almoco).not.toBeDisabled());
+  await userEvent.click(almoco);
+  const dlg = screen.getByRole('dialog', { name: 'Adicionar alimento' });
+  expect(almoco).not.toBeChecked();
+  await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
+  await userEvent.click(await within(dlg).findByRole('button', { name: /Arroz branco cozido/ }));
+  await userEvent.type(within(dlg).getByLabelText('Gramas'), '120');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Adicionar' }));
+  await waitFor(() => expect(almoco).toBeChecked());
+  await waitFor(() => expect(repo.upsertLog).toHaveBeenCalledWith(expect.objectContaining({ almoco: true })));
+  expect(screen.getByRole('img', { name: '1 de 5 pontos' })).toBeInTheDocument();
+});
+
+test('fechar a busca sem adicionar deixa a refeição desmarcada', async () => {
+  renderHoje(ativo);
+  const almoco = await screen.findByLabelText('Almoço');
+  await waitFor(() => expect(almoco).not.toBeDisabled());
+  await userEvent.click(almoco);
+  await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Fechar' }));
+  expect(almoco).not.toBeChecked();
+  expect(repo.upsertLog).not.toHaveBeenCalledWith(expect.objectContaining({ almoco: true }));
+});
+
+test('adicionar pelo + Alimento não marca a refeição sozinho', async () => {
+  renderHoje(ativo);
+  await userEvent.click(await screen.findByRole('button', { name: 'Adicionar alimento no almoço' }));
+  const dlg = screen.getByRole('dialog', { name: 'Adicionar alimento' });
+  await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
+  await userEvent.click(await within(dlg).findByRole('button', { name: /Arroz branco cozido/ }));
+  await userEvent.type(within(dlg).getByLabelText('Gramas'), '120');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Adicionar' }));
+  expect(await screen.findByText('154 kcal hoje')).toBeInTheDocument();
+  expect(screen.getByLabelText('Almoço')).not.toBeChecked();
+});
+
+test('se o alimento não salvar, a refeição não é marcada', async () => {
+  vi.mocked(repo.addMealItem).mockRejectedValue(new Error('rede'));
+  renderHoje(ativo);
+  const almoco = await screen.findByLabelText('Almoço');
+  await waitFor(() => expect(almoco).not.toBeDisabled());
+  await userEvent.click(almoco);
+  const dlg = screen.getByRole('dialog', { name: 'Adicionar alimento' });
+  await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
+  await userEvent.click(await within(dlg).findByRole('button', { name: /Arroz branco cozido/ }));
+  await userEvent.type(within(dlg).getByLabelText('Gramas'), '120');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Adicionar' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Não foi salvo, tente de novo');
+  expect(almoco).not.toBeChecked();
 });
