@@ -12,7 +12,7 @@ Stack: React + TypeScript + Vite · Supabase (login, Postgres, RLS) · GitHub Pa
 
 ### 1. Supabase
 1. Crie um projeto em <https://supabase.com/dashboard>.
-2. Abra **SQL Editor**, cole o conteúdo de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) e clique em **Run**.
+2. Abra **SQL Editor** e rode, em ordem, cada arquivo de [`supabase/migrations/`](supabase/migrations/) (`0001` a `0006`; o `0006_taco.sql` carrega os ~600 alimentos da tabela TACO e é gerado por `node scripts/taco-seed.mjs`).
 3. Em **Authentication → Sign In / Providers → Email**:
    - deixe **Email** ligado;
    - (opcional) desligue **Confirm email** para entrar sem precisar confirmar o e-mail.

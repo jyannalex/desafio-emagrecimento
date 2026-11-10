@@ -159,4 +159,6 @@ Se o desafio ainda não foi configurado, o app leva para Configurações.
 
 ## 9. Fora de escopo
 
-Modo offline/sincronização, notificações, contestação de pontos, mais de 2 participantes, calorias e cardápios, pontuação por peso.
+Modo offline/sincronização, notificações, contestação de pontos, mais de 2 participantes, cardápios, pontuação por peso.
+
+Calorias (alimentos em gramas, só informativo) estão em `2026-11-10-alimentos-e-calorias-design.md`.
