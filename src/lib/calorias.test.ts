@@ -1,5 +1,5 @@
 import type { Food } from '../types';
-import { buscarAlimentos, formatKcal, kcalItem, kcalPor100, lerGramas, normalizar, somaKcal } from './calorias';
+import { buscarAlimentos, formatKcal, kcalItem, kcalPor100, lerGramas, lerNumero, normalizar, somaKcal } from './calorias';
 
 const f = (id: number, nome: string, kcal_100g = 100): Food => ({ id, nome, kcal_100g, origem: 'taco', criado_por: null });
 
@@ -74,4 +74,26 @@ test('converte kcal da embalagem para 100 g', () => {
   expect(kcalPor100(120, 30)).toBe(400);
   expect(kcalPor100(100, 100)).toBe(100);
   expect(kcalPor100(50, 30)).toBe(166.7);
+});
+
+test('gramas: no máximo 1 casa decimal (como o banco guarda)', () => {
+  expect(lerGramas('120,55')).toBeNull();
+  expect(lerGramas('0,04')).toBeNull();
+  expect(lerGramas('0,1')).toBe(0.1);
+  expect(lerGramas('120.5')).toBe(120.5);
+});
+
+test('gramas: ponto de milhar', () => {
+  expect(lerGramas('1.000')).toBe(1000);
+  expect(lerGramas('1.500,5')).toBe(1500.5);
+  expect(lerGramas('10.000')).toBeNull(); // passa de 5.000
+});
+
+test('kcal digitada: aceita 0, vírgula e ponto de milhar', () => {
+  expect(lerNumero('0')).toBe(0);
+  expect(lerNumero('12,5')).toBe(12.5);
+  expect(lerNumero('1.000')).toBe(1000);
+  expect(lerNumero('12,55')).toBeNull();
+  expect(lerNumero('')).toBeNull();
+  expect(lerNumero('abc')).toBeNull();
 });

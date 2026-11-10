@@ -38,12 +38,21 @@ export function buscarAlimentos(catalogo: Food[], termo: string, recentes: numbe
 
 export const formatKcal = (n: number) => `${n.toLocaleString('pt-BR')} kcal`;
 
-/** Gramas digitadas ("120" ou "120,5"); null se vazio, inválido, ≤ 0 ou acima do limite. */
+/**
+ * Número digitado do jeito brasileiro, com no máximo 1 casa decimal (o banco guarda numeric(6,1)).
+ * "12,5" e "12.5" → 12,5; "1.000" e "1.500,5" → ponto de milhar. null se não der para ler.
+ */
+export function lerNumero(s: string): number | null {
+  let t = s.trim();
+  if (/^\d{1,3}(\.\d{3})+(,\d)?$/.test(t)) t = t.replace(/\./g, '');
+  t = t.replace(',', '.');
+  return /^\d+(\.\d)?$/.test(t) ? Number(t) : null;
+}
+
+/** Gramas digitadas ("120", "120,5", "1.000"); null se inválido, ≤ 0 ou acima do limite. */
 export function lerGramas(s: string): number | null {
-  const t = s.trim().replace(',', '.');
-  if (!/^\d+(\.\d+)?$/.test(t)) return null;
-  const g = Number(t);
-  return g > 0 && g <= GRAMAS_MAX ? g : null;
+  const g = lerNumero(s);
+  return g !== null && g > 0 && g <= GRAMAS_MAX ? g : null;
 }
 
 /** "120 kcal em 30 g" (embalagem) → kcal em 100 g, com 1 casa decimal. */

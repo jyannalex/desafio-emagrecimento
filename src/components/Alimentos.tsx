@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAlimentos } from '../hooks/useAlimentos';
-import { buscarAlimentos, formatKcal, kcalItem, kcalPor100, KCAL_100G_MAX, lerGramas, somaKcal } from '../lib/calorias';
+import { buscarAlimentos, formatKcal, kcalItem, kcalPor100, KCAL_100G_MAX, lerGramas, lerNumero, somaKcal } from '../lib/calorias';
 import type { Food, MealItem } from '../types';
 import { useToast } from './Toast';
 
@@ -248,7 +248,7 @@ function CampoGramas({
         <span>g</span>
         <span className="gramas-kcal">{g ? `= ${formatKcal(kcalItem(g, food.kcal_100g))}` : ''}</span>
       </label>
-      {txt.trim() && !g && <p className="muted small">Digite um peso entre 1 e 5.000 g</p>}
+      {txt.trim() && !g && <p className="muted small">Digite um peso até 5.000 g, com no máximo 1 casa decimal</p>}
       <div className="viewer-actions">
         {extra}
         <button type="submit" className="btn primary" disabled={!g}>
@@ -277,10 +277,6 @@ export function EditarItem({ item, onSalvar, onRemover, onFechar }: { item: Meal
   );
 }
 
-const lerNumero = (s: string) => {
-  const t = s.trim().replace(',', '.');
-  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null;
-};
 
 /** Cadastro/edição de alimento. As kcal podem vir da embalagem em qualquer porção; grava em 100 g. */
 export function FormAlimento({
