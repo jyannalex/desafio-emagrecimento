@@ -1,4 +1,4 @@
-import type { Challenge, DailyLog, Photo, Profile, Tarefa, Weight } from '../types';
+import type { Challenge, DailyLog, Food, MealItem, Photo, Profile, Tarefa, Weight } from '../types';
 import { db } from '../lib/supabase';
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
@@ -146,4 +146,82 @@ export async function deletePhotosUntil(userId: string, until: string): Promise<
     lote.forEach((r) => linkCache.delete(r.path));
   }
   return rows.length;
+}
+
+// ---------- alimentos ----------
+
+const FOOD_COLS = 'id, nome, kcal_100g, origem, criado_por';
+const ITEM_COLS = 'id, user_id, dia, refeicao, food_id, nome, kcal_100g, gramas';
+const PAGINA = 1000;
+
+/** numeric do Postgres pode vir como texto: garante número. */
+const comoFood = (f: Food): Food => ({ ...f, kcal_100g: Number(f.kcal_100g) });
+const comoItem = (i: MealItem): MealItem => ({ ...i, kcal_100g: Number(i.kcal_100g), gramas: Number(i.gramas) });
+
+let cacheFoods: Food[] | null = null;
+
+export function limparCacheFoods() {
+  cacheFoods = null;
+}
+
+/** Catálogo inteiro (TACO + cadastrados), baixado uma vez por sessão. */
+export async function getFoods(): Promise<Food[]> {
+  if (cacheFoods) return cacheFoods;
+  const todos: Food[] = [];
+  for (let de = 0; ; de += PAGINA) {
+    const pagina = check(await db().from('foods').select(FOOD_COLS).order('id').range(de, de + PAGINA - 1)) ?? [];
+    todos.push(...(pagina as Food[]).map(comoFood));
+    if (pagina.length < PAGINA) break;
+  }
+  cacheFoods = todos;
+  return todos;
+}
+
+export async function createFood(f: { nome: string; kcal_100g: number; criado_por: string }): Promise<Food> {
+  const novo = comoFood(check(await db().from('foods').insert({ ...f, origem: 'custom' }).select(FOOD_COLS).single()) as Food);
+  if (cacheFoods) cacheFoods = [...cacheFoods, novo];
+  return novo;
+}
+
+export async function updateFood(id: number, f: { nome: string; kcal_100g: number }): Promise<Food> {
+  const novo = comoFood(check(await db().from('foods').update(f).eq('id', id).select(FOOD_COLS).single()) as Food);
+  if (cacheFoods) cacheFoods = cacheFoods.map((x) => (x.id === id ? novo : x));
+  return novo;
+}
+
+export async function deleteFood(id: number): Promise<void> {
+  check(await db().from('foods').delete().eq('id', id));
+  if (cacheFoods) cacheFoods = cacheFoods.filter((x) => x.id !== id);
+}
+
+export async function getMealItems(from: string, to: string, userId?: string): Promise<MealItem[]> {
+  let q = db().from('meal_items').select(ITEM_COLS).gte('dia', from).lte('dia', to).order('created_at').order('id');
+  if (userId) q = q.eq('user_id', userId);
+  return ((check(await q) ?? []) as MealItem[]).map(comoItem);
+}
+
+export async function addMealItem(i: Omit<MealItem, 'id'>): Promise<MealItem> {
+  return comoItem(check(await db().from('meal_items').insert(i).select(ITEM_COLS).single()) as MealItem);
+}
+
+export async function updateMealItemGramas(id: number, gramas: number): Promise<MealItem> {
+  return comoItem(check(await db().from('meal_items').update({ gramas }).eq('id', id).select(ITEM_COLS).single()) as MealItem);
+}
+
+export async function deleteMealItem(id: number): Promise<void> {
+  check(await db().from('meal_items').delete().eq('id', id));
+}
+
+/** Alimentos que a pessoa usou por último (mais recente primeiro), sem repetir, até 8. */
+export async function recentFoodIds(userId: string): Promise<number[]> {
+  const rows = (check(
+    await db()
+      .from('meal_items')
+      .select('food_id')
+      .eq('user_id', userId)
+      .not('food_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(200),
+  ) ?? []) as { food_id: number }[];
+  return [...new Set(rows.map((r) => r.food_id))].slice(0, 8);
 }
