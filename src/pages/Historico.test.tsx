@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
 import * as dates from '../lib/dates';
-import type { DailyLog, MealItem } from '../types';
+import type { DailyLog, MealItem, VarLance } from '../types';
 import Historico from './Historico';
 
 vi.mock('../data/repo');
@@ -37,6 +37,8 @@ beforeEach(() => {
   vi.mocked(repo.getPhotos).mockResolvedValue([]);
   vi.mocked(repo.photoUrls).mockResolvedValue({});
   vi.mocked(repo.getMealItems).mockResolvedValue([]);
+  vi.mocked(repo.getLances).mockResolvedValue([]);
+  vi.mocked(repo.getMensagens).mockResolvedValue([]);
 });
 
 test('lista os dias do mais recente ao início com pontos de cada um', async () => {
@@ -124,4 +126,42 @@ test('sem alimentos não mostra total', async () => {
   await userEvent.click(await screen.findByRole('button', { name: /6 de novembro/ }));
   const det = screen.getByTestId('detalhe-2026-11-06');
   expect(within(det).queryByText(/^Total:/)).not.toBeInTheDocument();
+});
+
+// ---------- VAR ----------
+const lanceB = (over: Partial<VarLance> = {}): VarLance => ({
+  id: 1, alvo: 'b', autor: 'a', dia: '2026-11-07', ponto: 'cafe', motivo: 'café com bolo?', status: 'aberto', created_at: 't', ...over,
+});
+
+test('VAR: botão só nos pontos que o outro fez', async () => {
+  renderHist('2026-11-07');
+  await userEvent.click(await screen.findByRole('button', { name: /^Hoje/ }));
+  const det = screen.getByTestId('detalhe-2026-11-07');
+  expect(within(det).getByRole('button', { name: 'Chamar o VAR: café da manhã de Beto' })).toBeInTheDocument();
+  expect(within(det).queryByRole('button', { name: 'Chamar o VAR: almoço de Beto' })).not.toBeInTheDocument();
+  expect(within(det).queryByRole('button', { name: /Chamar o VAR: .* de Ana/ })).not.toBeInTheDocument();
+});
+
+test('VAR: abrir chama o banco e o ponto fica em análise', async () => {
+  vi.mocked(repo.abrirLance).mockImplementation(async (l) => lanceB({ ...l, id: 9 }));
+  renderHist('2026-11-07');
+  await userEvent.click(await screen.findByRole('button', { name: /^Hoje/ }));
+  await userEvent.click(screen.getByRole('button', { name: 'Chamar o VAR: café da manhã de Beto' }));
+  const dlg = screen.getByRole('dialog', { name: 'Chamar o VAR' });
+  await userEvent.type(within(dlg).getByLabelText('Motivo'), 'café com bolo?');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Abrir VAR' }));
+  expect(repo.abrirLance).toHaveBeenCalledWith({ alvo: 'b', autor: 'a', dia: '2026-11-07', ponto: 'cafe', motivo: 'café com bolo?' });
+  expect(await screen.findByRole('button', { name: 'Ver lance do VAR: em análise' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Chamar o VAR: café da manhã de Beto' })).not.toBeInTheDocument();
+  // em análise ainda vale ponto
+  expect(within(screen.getByTestId('dia-2026-11-07')).getByLabelText('Beto: 1 de 5')).toBeInTheDocument();
+});
+
+test('VAR: ponto aceito é riscado e sai das bolinhas', async () => {
+  vi.mocked(repo.getLances).mockResolvedValue([lanceB({ status: 'aceito' })]);
+  renderHist('2026-11-07');
+  expect(await within(await screen.findByTestId('dia-2026-11-07')).findByLabelText('Beto: 0 de 5')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /^Hoje/ }));
+  await userEvent.click(screen.getByRole('button', { name: 'Ver lance do VAR: anulado pelo VAR' }));
+  expect(screen.getByRole('dialog', { name: 'VAR: café da manhã de Beto' })).toBeInTheDocument();
 });

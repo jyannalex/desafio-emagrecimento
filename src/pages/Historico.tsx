@@ -1,13 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useApp } from '../data/AppContext';
 import { FotoMini } from '../components/Fotos';
-import { getLogs, getMealItems, getPhotos, getProfiles, photoUrls } from '../data/repo';
+import { useToast } from '../components/Toast';
+import { AbrirVar, LanceVar, nomeDoPonto, PONTO_ROTULO, SeloVar } from '../components/Var';
+import { abrirLance, getLances, getLogs, getMealItems, getPhotos, getProfiles, photoUrls } from '../data/repo';
 import { formatKcal, kcalDoItem, qtdTexto, somaKcal } from '../lib/calorias';
 import { useToday } from '../hooks/useToday';
 import { addDays, formatShort, formatWeekday } from '../lib/dates';
 import { playerColors, playerSlot, playerVar } from '../lib/players';
-import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
-import type { DailyLog, MealItem, Photo, Profile, Tarefa } from '../types';
+import { anuladosPorDia, ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
+import type { DailyLog, MealItem, Photo, Ponto, Profile, Tarefa, VarLance } from '../types';
 
 const REFEICOES: { key: 'cafe' | 'almoco' | 'lanche' | 'jantar'; nota: 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar'; label: string; foto: string }[] = [
   { key: 'cafe', nota: 'nota_cafe', label: 'Café da manhã', foto: 'do café da manhã' },
@@ -17,8 +19,12 @@ const REFEICOES: { key: 'cafe' | 'almoco' | 'lanche' | 'jantar'; nota: 'nota_caf
 ];
 
 export default function Historico() {
-  const { challenge } = useApp();
+  const { userId, challenge } = useApp();
   const today = useToday();
+  const toast = useToast();
+  const [lances, setLances] = useState<VarLance[]>([]);
+  const [chamando, setChamando] = useState<{ alvo: Profile; dia: string; ponto: Ponto } | null>(null);
+  const [vendo, setVendo] = useState<VarLance | null>(null);
   const [dados, setDados] = useState<{ profiles: Profile[]; logs: DailyLog[] } | null>(null);
   const [erro, setErro] = useState(false);
   const [aberto, setAberto] = useState<string | null>(null);
@@ -53,6 +59,11 @@ export default function Historico() {
     try {
       const [profiles, logs] = await Promise.all([getProfiles(), getLogs(challenge.data_inicio, challenge.data_fim)]);
       setDados({ profiles, logs });
+      getLances()
+        .then(setLances)
+        .catch(() => {
+          /* sem VAR visível; o histórico continua */
+        });
     } catch {
       setErro(true);
     }
@@ -99,6 +110,13 @@ export default function Historico() {
   for (let d = ultimo; d >= challenge.data_inicio; d = addDays(d, -1)) dias.push(d);
 
   const porChave = new Map(dados.logs.map((l) => [`${l.user_id}|${l.dia}`, l]));
+  const anulados = new Map(dados.profiles.map((p) => [p.id, anuladosPorDia(lances, p.id)]));
+  const nomes = Object.fromEntries(dados.profiles.map((p) => [p.id, p.nome]));
+  const ativos = lances.filter((l) => l.status !== 'retirado');
+  const mudou = (l: VarLance) => {
+    setLances((ls) => ls.map((x) => (x.id === l.id ? l : x)));
+    setVendo(l);
+  };
   const cores = playerColors(dados.profiles);
   const pessoas = [...dados.profiles]
     .map((p) => ({ p, slot: playerSlot(dados.profiles, p.id), cor: playerVar(cores.get(p.id)!) }))
@@ -121,7 +139,7 @@ export default function Historico() {
                   </span>
                   <span className="pips">
                     {pessoas.map(({ p, cor }) => {
-                      const pts = dayPoints(porChave.get(`${p.id}|${d}`));
+                      const pts = dayPoints(porChave.get(`${p.id}|${d}`), anulados.get(p.id)?.get(d));
                       return (
                         <span className="pip-line" key={p.id} aria-label={`${p.nome}: ${pts} de ${MAX_POINTS}`}>
                           <span className="pip-dots" aria-hidden>
@@ -148,6 +166,10 @@ export default function Historico() {
                         fotos={fotosDia?.dia === d ? fotosDia.fotos.filter((f) => f.user_id === p.id) : []}
                         urls={fotosDia?.urls ?? {}}
                         itens={itensDia?.dia === d ? itensDia.itens.filter((i) => i.user_id === p.id) : []}
+                        lances={ativos.filter((l) => l.alvo === p.id && l.dia === d)}
+                        podeChamar={p.id !== userId}
+                        onChamar={(ponto) => setChamando({ alvo: p, dia: d, ponto })}
+                        onVer={setVendo}
                       />
                     ))}
                   </div>
@@ -157,6 +179,23 @@ export default function Historico() {
           </ul>
         </section>
       )}
+      {chamando && (
+        <AbrirVar
+          alvo={`${nomeDoPonto(chamando.ponto, chamando.alvo.nome)} · ${formatShort(chamando.dia)}`}
+          onFechar={() => setChamando(null)}
+          onAbrir={async (motivo) => {
+            try {
+              const novo = await abrirLance({ alvo: chamando.alvo.id, autor: userId, dia: chamando.dia, ponto: chamando.ponto, motivo });
+              setLances((ls) => [...ls, novo]);
+              setChamando(null);
+            } catch {
+              toast('Não deu para abrir o VAR: o ponto mudou ou já tem um lance. Tente de novo.');
+              getLances().then(setLances).catch(() => {});
+            }
+          }}
+        />
+      )}
+      {vendo && <LanceVar lance={vendo} meuId={userId} nomes={nomes} onMudou={mudou} onFechar={() => setVendo(null)} />}
     </main>
   );
 }
@@ -176,6 +215,10 @@ function Detalhe({
   fotos,
   urls,
   itens,
+  lances,
+  podeChamar,
+  onChamar,
+  onVer,
 }: {
   nome: string;
   cor: string;
@@ -183,7 +226,24 @@ function Detalhe({
   fotos: Photo[];
   urls: Record<string, string>;
   itens: MealItem[];
+  /** lances abertos ou aceitos desta pessoa neste dia */
+  lances: VarLance[];
+  podeChamar: boolean;
+  onChamar: (p: Ponto) => void;
+  onVer: (l: VarLance) => void;
 }) {
+  /** Selo do lance, ou o botão VAR (só no ponto feito do outro, sem lance). */
+  const var_ = (ponto: Ponto, feito: boolean) => {
+    const l = lances.find((x) => x.ponto === ponto);
+    if (l) return <SeloVar lance={l} onAbrir={() => onVer(l)} />;
+    if (!podeChamar || !feito) return null;
+    return (
+      <button type="button" className="var-btn" aria-label={`Chamar o VAR: ${PONTO_ROTULO[ponto]} de ${nome}`} onClick={() => onChamar(ponto)}>
+        VAR
+      </button>
+    );
+  };
+  const anulado = (ponto: Ponto) => lances.some((x) => x.ponto === ponto && x.status === 'aceito');
   const foto = (t: Tarefa, rotulo: string) => {
     const f = fotos.find((x) => x.tarefa === t);
     return f ? <FotoMini rotulo={`${rotulo} de ${nome}`} url={urls[f.path]} /> : null;
@@ -199,7 +259,8 @@ function Detalhe({
         <ul>
           {REFEICOES.map((r) => (
             <Item key={r.key} ok={!!log?.[r.key]}>
-              {r.label}
+              <span className={r.key !== 'lanche' && anulado(r.key) ? 'anulado' : undefined}>{r.label}</span>
+              {r.key !== 'lanche' && var_(r.key, !!log?.[r.key])}
               {log?.[r.nota] && <span className="nota">{log[r.nota]}</span>}
               {itens
                 .filter((i) => i.refeicao === r.key)
@@ -214,12 +275,16 @@ function Detalhe({
           {log && (
             <>
               <Item ok={log.atividade_min >= ATIVIDADE_META_MIN}>
-                Atividade física · {log.atividade_min} min
+                <span className={anulado('atividade') ? 'anulado' : undefined}>Atividade física · {log.atividade_min} min</span>
+                {var_('atividade', log.atividade_min >= ATIVIDADE_META_MIN)}
                 {log.nota_atividade && <span className="nota">{log.nota_atividade}</span>}
                 {foto('atividade', 'da atividade')}
               </Item>
               <Item ok={log.agua_ml >= log.meta_agua_ml_do_dia}>
-                Água · {log.agua_ml} / {log.meta_agua_ml_do_dia} ml
+                <span className={anulado('agua') ? 'anulado' : undefined}>
+                  Água · {log.agua_ml} / {log.meta_agua_ml_do_dia} ml
+                </span>
+                {var_('agua', log.agua_ml >= log.meta_agua_ml_do_dia)}
               </Item>
             </>
           )}
