@@ -72,12 +72,15 @@ export function LanceVar({
   meuId,
   nomes,
   onMudou,
+  onRecarregar,
   onFechar,
 }: {
   lance: VarLance;
   meuId: string;
   nomes: Record<string, string>;
   onMudou: (l: VarLance) => void;
+  /** Busca o lance de novo (ex.: o outro decidiu enquanto a folha estava aberta). */
+  onRecarregar?: () => void;
   onFechar: () => void;
 }) {
   const toast = useToast();
@@ -105,6 +108,7 @@ export function LanceVar({
       onMudou(await decidirLance(lance.id, status));
     } catch (e) {
       toast(e instanceof Error && e.message.includes('já foi decidido') ? e.message : 'Não foi salvo, tente de novo');
+      onRecarregar?.();
     } finally {
       setOcupado(false);
     }
@@ -120,6 +124,7 @@ export function LanceVar({
       setTexto('');
     } catch {
       toast('Não foi salvo, tente de novo');
+      onRecarregar?.();
     } finally {
       setOcupado(false);
     }

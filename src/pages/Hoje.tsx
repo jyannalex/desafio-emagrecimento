@@ -119,6 +119,14 @@ export default function Hoje() {
           lance={vendo}
           meuId={userId}
           nomes={nomes}
+          onRecarregar={() =>
+            getLances()
+              .then((ls) => {
+                setLances(ls);
+                setVendo((v) => (v ? (ls.find((x) => x.id === v.id) ?? null) : null));
+              })
+              .catch(() => {})
+          }
           onFechar={() => setVendo(null)}
           onMudou={(l) => {
             setLances((ls) => ls.map((x) => (x.id === l.id ? l : x)));

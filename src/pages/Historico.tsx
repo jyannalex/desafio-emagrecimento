@@ -195,7 +195,23 @@ export default function Historico() {
           }}
         />
       )}
-      {vendo && <LanceVar lance={vendo} meuId={userId} nomes={nomes} onMudou={mudou} onFechar={() => setVendo(null)} />}
+      {vendo && (
+        <LanceVar
+          lance={vendo}
+          meuId={userId}
+          nomes={nomes}
+          onMudou={mudou}
+          onRecarregar={() =>
+            getLances()
+              .then((ls) => {
+                setLances(ls);
+                setVendo((v) => (v ? (ls.find((x) => x.id === v.id) ?? null) : null));
+              })
+              .catch(() => {})
+          }
+          onFechar={() => setVendo(null)}
+        />
+      )}
     </main>
   );
 }

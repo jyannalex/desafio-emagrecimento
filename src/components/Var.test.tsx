@@ -26,10 +26,10 @@ beforeEach(() => {
   vi.mocked(repo.decidirLance).mockImplementation(async (id, status) => lance({ id, status }));
 });
 
-const renderLance = (l: VarLance, meuId: string, onMudou = vi.fn()) =>
+const renderLance = (l: VarLance, meuId: string, onMudou = vi.fn(), onRecarregar = vi.fn()) =>
   render(
     <ToastProvider>
-      <LanceVar lance={l} meuId={meuId} nomes={nomes} onMudou={onMudou} onFechar={() => {}} />
+      <LanceVar lance={l} meuId={meuId} nomes={nomes} onMudou={onMudou} onRecarregar={onRecarregar} onFechar={() => {}} />
     </ToastProvider>,
   );
 
@@ -88,11 +88,22 @@ test('lance encerrado mostra o resultado e não tem ações', async () => {
   expect(within(dlg).queryByRole('button', { name: /Aceitar|Retirar/ })).not.toBeInTheDocument();
 });
 
-test('falha ao decidir avisa', async () => {
+test('falha ao decidir avisa e recarrega o lance', async () => {
   vi.mocked(repo.decidirLance).mockRejectedValue(new Error('Esse lance já foi decidido'));
-  renderLance(lance(), 'a');
+  const onRecarregar = vi.fn();
+  renderLance(lance(), 'a', vi.fn(), onRecarregar);
   await userEvent.click(screen.getByRole('button', { name: 'Retirar contestação' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Esse lance já foi decidido');
+  expect(onRecarregar).toHaveBeenCalled();
+});
+
+test('falha ao enviar mensagem também recarrega', async () => {
+  vi.mocked(repo.enviarMensagem).mockRejectedValue(new Error('rls'));
+  const onRecarregar = vi.fn();
+  renderLance(lance(), 'b', vi.fn(), onRecarregar);
+  await userEvent.type(screen.getByLabelText('Escrever'), 'oi');
+  await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+  await waitFor(() => expect(onRecarregar).toHaveBeenCalled());
 });
 
 test('selo mostra em análise ou anulado e abre o lance', async () => {

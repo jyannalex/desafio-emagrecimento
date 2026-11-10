@@ -384,3 +384,19 @@ test('ponto anulado pelo VAR sai do anel e a refeição mostra o selo', async ()
   const cafe = screen.getByLabelText('Café da manhã').closest('li')!;
   expect(within(cafe).getByRole('button', { name: 'Ver lance do VAR: anulado pelo VAR' })).toBeInTheDocument();
 });
+
+test('se o outro já decidiu, a folha recarrega e mostra o resultado', async () => {
+  vi.mocked(repo.getProfiles).mockResolvedValue([
+    { id: 'u1', nome: 'Ana', meta_agua_ml: 2000 },
+    { id: 'u2', nome: 'Beto', meta_agua_ml: 2000 },
+  ]);
+  vi.mocked(repo.getLances)
+    .mockResolvedValueOnce([lanceV({ alvo: 'u2', autor: 'u1', ponto: 'agua' })])
+    .mockResolvedValue([lanceV({ alvo: 'u2', autor: 'u1', ponto: 'agua', status: 'aceito' })]);
+  vi.mocked(repo.decidirLance).mockRejectedValue(new Error('Esse lance já foi decidido'));
+  renderHoje(ativo);
+  await userEvent.click(await screen.findByRole('button', { name: /Água de Beto/ }));
+  await userEvent.click(screen.getByRole('button', { name: 'Retirar contestação' }));
+  expect(await screen.findByText('Ponto anulado: Beto aceitou.')).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /VAR/ })).not.toBeInTheDocument();
+});
