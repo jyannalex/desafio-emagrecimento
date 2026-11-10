@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MeusAlimentos } from '../components/Alimentos';
 import { signOut } from '../data/auth';
 import { useApp } from '../data/AppContext';
 import { deletePhotosUntil, getProfiles, myPhotoStats, saveChallenge, updateProfile } from '../data/repo';
@@ -269,6 +270,8 @@ export default function Config() {
           </p>
         </section>
       )}
+
+      {challenge && <MeusAlimentos userId={userId} />}
 
       {challenge && (
         <section className="panel">

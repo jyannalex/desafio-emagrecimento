@@ -5,7 +5,8 @@ import * as auth from '../data/auth';
 import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
 import { todayBR } from '../lib/dates';
-import type { Challenge } from '../types';
+import type { Challenge, Food } from '../types';
+import { within } from '@testing-library/react';
 import Config from './Config';
 
 vi.mock('../data/repo');
@@ -32,7 +33,12 @@ beforeEach(() => {
   vi.mocked(repo.updateProfile).mockResolvedValue();
   vi.mocked(repo.myPhotoStats).mockResolvedValue({ count: 0, bytes: 0 });
   vi.mocked(repo.deletePhotosUntil).mockResolvedValue(0);
+  catalogo = [];
+  vi.mocked(repo.getFoods).mockImplementation(async () => catalogo);
+  vi.mocked(repo.recentFoodIds).mockResolvedValue([]);
 });
+
+let catalogo: Food[] = [];
 
 async function preencherDesafio(nome: string, inicio: string, fim: string) {
   await userEvent.clear(screen.getByLabelText('Nome do desafio'));
@@ -174,4 +180,78 @@ test('outra cor igual à do outro não grava', async () => {
   expect(await screen.findByText('Essa é a cor de Beto, escolha outra')).toBeInTheDocument();
   await new Promise((r) => setTimeout(r, 700));
   expect(repo.updateProfile).not.toHaveBeenCalled();
+});
+
+// ---------- meus alimentos ----------
+
+const desafio = { id: 1 as const, nome: 'X', data_inicio: '2026-11-01', data_fim: '2026-12-31' };
+const custom = (id: number, nome: string, kcal_100g: number, criado_por: string): Food => ({ id, nome, kcal_100g, origem: 'custom', criado_por });
+
+test('meus alimentos: lista só os que eu cadastrei', async () => {
+  catalogo = [
+    { id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, origem: 'taco', criado_por: null },
+    custom(50, 'Marmita da tia', 400, 'a'),
+    custom(51, 'Bolo do Beto', 300, 'b'),
+  ];
+  renderConfig(desafio);
+  const painel = (await screen.findByRole('heading', { name: 'Meus alimentos' })).closest('section')!;
+  expect(await within(painel).findByText('Marmita da tia')).toBeInTheDocument();
+  expect(within(painel).getByText('400 kcal/100 g')).toBeInTheDocument();
+  expect(within(painel).queryByText('Bolo do Beto')).not.toBeInTheDocument();
+  expect(within(painel).queryByText('Arroz branco cozido')).not.toBeInTheDocument();
+});
+
+test('meus alimentos: vazio convida a cadastrar', async () => {
+  renderConfig(desafio);
+  expect(await screen.findByText('Você ainda não cadastrou nenhum alimento')).toBeInTheDocument();
+});
+
+test('meus alimentos: cadastrar', async () => {
+  vi.mocked(repo.createFood).mockImplementation(async (x) => {
+    const f = { ...x, id: 60, origem: 'custom' as const };
+    catalogo = [...catalogo, f];
+    return f;
+  });
+  renderConfig(desafio);
+  await userEvent.click(await screen.findByRole('button', { name: 'Cadastrar alimento' }));
+  const dlg = screen.getByRole('dialog', { name: 'Cadastrar alimento' });
+  await userEvent.type(within(dlg).getByLabelText('Nome'), 'Pão da padaria');
+  await userEvent.type(within(dlg).getByLabelText('Calorias (kcal)'), '280');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar alimento' }));
+  expect(repo.createFood).toHaveBeenCalledWith({ nome: 'Pão da padaria', kcal_100g: 280, criado_por: 'a' });
+  expect(await screen.findByText('Pão da padaria')).toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('meus alimentos: editar', async () => {
+  catalogo = [custom(50, 'Marmita da tia', 400, 'a')];
+  vi.mocked(repo.updateFood).mockImplementation(async (id, x) => {
+    const f = { ...custom(id, x.nome, x.kcal_100g, 'a') };
+    catalogo = [f];
+    return f;
+  });
+  renderConfig(desafio);
+  await userEvent.click(await screen.findByRole('button', { name: 'Editar Marmita da tia' }));
+  const dlg = screen.getByRole('dialog', { name: 'Editar alimento' });
+  expect(within(dlg).getByLabelText('Nome')).toHaveValue('Marmita da tia');
+  expect(within(dlg).getByLabelText('Calorias (kcal)')).toHaveValue('400');
+  await userEvent.clear(within(dlg).getByLabelText('Calorias (kcal)'));
+  await userEvent.type(within(dlg).getByLabelText('Calorias (kcal)'), '350');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar alimento' }));
+  expect(repo.updateFood).toHaveBeenCalledWith(50, { nome: 'Marmita da tia', kcal_100g: 350 });
+  expect(await screen.findByText('350 kcal/100 g')).toBeInTheDocument();
+});
+
+test('meus alimentos: apagar pede confirmação', async () => {
+  catalogo = [custom(50, 'Marmita da tia', 400, 'a')];
+  vi.mocked(repo.deleteFood).mockImplementation(async () => {
+    catalogo = [];
+  });
+  const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  renderConfig(desafio);
+  await userEvent.click(await screen.findByRole('button', { name: 'Apagar Marmita da tia' }));
+  expect(confirmar).toHaveBeenCalled();
+  expect(repo.deleteFood).toHaveBeenCalledWith(50);
+  await waitFor(() => expect(screen.queryByText('Marmita da tia')).not.toBeInTheDocument());
+  confirmar.mockRestore();
 });

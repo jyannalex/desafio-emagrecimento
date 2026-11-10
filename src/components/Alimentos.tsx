@@ -344,3 +344,79 @@ export function FormAlimento({
     </form>
   );
 }
+
+/** Configurações: os alimentos que a pessoa cadastrou, com editar e apagar. */
+export function MeusAlimentos({ userId }: { userId: string }) {
+  const al = useAlimentos(userId);
+  const toast = useToast();
+  const [form, setForm] = useState<{ food?: Food } | null>(null);
+  const meus = (al.catalogo ?? []).filter((f) => f.origem === 'custom' && f.criado_por === userId).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+  async function apagar(f: Food) {
+    if (!window.confirm(`Apagar "${f.nome}"? O que já foi registrado com ele continua no histórico.`)) return;
+    try {
+      await al.apagar(f.id);
+    } catch {
+      toast('Não foi apagado, tente de novo');
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2>Meus alimentos</h2>
+      {al.erro ? (
+        <div className="notice danger">
+          Não foi possível carregar os alimentos{' '}
+          <button type="button" className="btn" onClick={al.recarregar}>
+            Tentar de novo
+          </button>
+        </div>
+      ) : !al.catalogo ? (
+        <p className="muted">Carregando…</p>
+      ) : meus.length === 0 ? (
+        <p style={{ margin: '0 0 12px' }}>Você ainda não cadastrou nenhum alimento</p>
+      ) : (
+        <ul className="meus-alimentos">
+          {meus.map((f) => (
+            <li key={f.id}>
+              <span className="grow">
+                <span>{f.nome}</span>
+                <br />
+                <span className="muted small">{formatKcal(f.kcal_100g)}/100 g</span>
+              </span>
+              <button type="button" className="btn ghost small" aria-label={`Editar ${f.nome}`} onClick={() => setForm({ food: f })}>
+                Editar
+              </button>
+              <button type="button" className="btn ghost small" aria-label={`Apagar ${f.nome}`} onClick={() => apagar(f)}>
+                Apagar
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" className="btn block" disabled={!al.catalogo} onClick={() => setForm({})}>
+        Cadastrar alimento
+      </button>
+      <p className="muted small" style={{ margin: '10px 0 0' }}>
+        Os dois veem e usam os alimentos cadastrados. Mudar um alimento não altera o que já foi registrado.
+      </p>
+      {form && (
+        <Folha titulo={form.food ? 'Editar alimento' : 'Cadastrar alimento'} onClose={() => setForm(null)}>
+          <FormAlimento
+            inicial={form.food ? { nome: form.food.nome, kcal_100g: form.food.kcal_100g } : undefined}
+            onCancelar={() => setForm(null)}
+            onSalvar={async (nome, kcal, g) => {
+              try {
+                if (form.food) await al.editar(form.food.id, nome, kcal, g);
+                else await al.cadastrar(nome, kcal, g);
+                setForm(null);
+              } catch {
+                toast('Não foi salvo, tente de novo');
+              }
+            }}
+          />
+        </Folha>
+      )}
+    </section>
+  );
+}
