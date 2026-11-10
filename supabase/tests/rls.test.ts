@@ -29,6 +29,8 @@ beforeAll(async () => {
   await db.exec(read('../migrations/0002_qualquer_dia_e_nota_atividade.sql'));
   await db.exec(read('../migrations/0003_fotos_e_cores.sql'));
   await db.exec(read('../migrations/0004_cor_livre.sql'));
+  await db.exec(read('../migrations/0005_alimentos.sql'));
+  await db.exec(read('../migrations/0006_taco.sql'));
   await db.exec(`
     insert into auth.users (id, email, raw_user_meta_data) values
       ('${A}', 'ana@x.com', '{"nome":"Ana"}'), ('${B}', 'beto@x.com', '{}');
@@ -239,4 +241,95 @@ test('cor livre: aceita #rrggbb minúsculo, recusa formato errado', async () => 
   await expect(as(A, `update profiles set cor = '#3A7BD5' where id = '${A}'`)).rejects.toThrow(/check/);
   await expect(as(A, `update profiles set cor = '#12345' where id = '${A}'`)).rejects.toThrow(/check/);
   await expect(as(A, `update profiles set cor = 'red' where id = '${A}'`)).rejects.toThrow(/check/);
+});
+
+// ---------- alimentos e itens das refeições ----------
+
+const insFood = (uid: string, nome: string, kcal = 100, origem = 'custom') =>
+  `insert into foods (nome, kcal_100g, origem, criado_por) values ('${nome}', ${kcal}, '${origem}', '${uid}') returning id`;
+const insItem = (uid: string, dia: string, refeicao = 'almoco', gramas = 120, foodId: string | number = 'null') =>
+  `insert into meal_items (user_id, dia, refeicao, food_id, nome, kcal_100g, gramas)
+   values ('${uid}', ${dia}, '${refeicao}', ${foodId}, 'Arroz branco cozido', 128, ${gramas}) returning id`;
+
+test('TACO carregada: 593 alimentos, arroz branco com 128 kcal', async () => {
+  const r = await as(A, `select count(*)::int as n from foods where origem = 'taco'`);
+  expect(r.rows[0]).toEqual({ n: 593 });
+  const arroz = await as(A, `select kcal_100g::float as k from foods where taco_id = 3`);
+  expect(arroz.rows[0]).toEqual({ k: 128 });
+});
+
+test('ninguém edita nem apaga alimento da TACO', async () => {
+  const up = await as(A, `update foods set kcal_100g = 1 where taco_id = 3`);
+  expect(up.affectedRows).toBe(0);
+  const del = await as(A, `delete from foods where taco_id = 3`);
+  expect(del.affectedRows).toBe(0);
+});
+
+test('alimento cadastrado: os dois veem, só o dono edita e apaga', async () => {
+  const id = (await as(A, insFood(A, 'Marmita da tia', 150))).rows[0] as { id: number };
+  const ver = await as(B, `select nome from foods where id = ${id.id}`);
+  expect(ver.rows).toEqual([{ nome: 'Marmita da tia' }]);
+  expect((await as(B, `update foods set kcal_100g = 1 where id = ${id.id}`)).affectedRows).toBe(0);
+  expect((await as(B, `delete from foods where id = ${id.id}`)).affectedRows).toBe(0);
+  expect((await as(A, `update foods set kcal_100g = 160 where id = ${id.id}`)).affectedRows).toBe(1);
+  await expect(as(A, `update foods set criado_por = '${B}' where id = ${id.id}`)).rejects.toThrow(/row-level security/);
+  expect((await as(A, `delete from foods where id = ${id.id}`)).affectedRows).toBe(1);
+});
+
+test('não cadastra em nome do outro nem como TACO', async () => {
+  await expect(as(A, insFood(B, 'Falso'))).rejects.toThrow(/row-level security/);
+  await expect(
+    as(A, `insert into foods (nome, kcal_100g, origem, taco_id) values ('Falso', 10, 'taco', 8000)`),
+  ).rejects.toThrow(/row-level security/);
+});
+
+test('limites do alimento: kcal até 900, nome com 2 a 80 letras', async () => {
+  await expect(as(A, insFood(A, 'Gordura', 901))).rejects.toThrow(/check/);
+  await expect(as(A, insFood(A, ' a '))).rejects.toThrow(/check/);
+  await expect(as(A, insFood(A, 'x'.repeat(81)))).rejects.toThrow(/check/);
+});
+
+test('item: A registra o seu hoje, não o de B nem amanhã; B vê o de A', async () => {
+  await as(A, insItem(A, 'public.today_br()'));
+  await expect(as(A, insItem(B, 'public.today_br()'))).rejects.toThrow(/row-level security/);
+  await expect(as(A, insItem(A, 'public.today_br() + 1'))).rejects.toThrow(/row-level security/);
+  const r = await as(B, `select count(*)::int as n from meal_items where user_id = '${A}'`);
+  expect(r.rows[0]).toEqual({ n: 1 });
+});
+
+test('item: A muda gramas e apaga o seu; B não apaga o de A', async () => {
+  const { id } = (await as(A, insItem(A, 'public.today_br()', 'jantar'))).rows[0] as { id: number };
+  expect((await as(B, `delete from meal_items where id = ${id}`)).affectedRows).toBe(0);
+  expect((await as(A, `update meal_items set gramas = 200 where id = ${id}`)).affectedRows).toBe(1);
+  expect((await as(A, `delete from meal_items where id = ${id}`)).affectedRows).toBe(1);
+});
+
+test('apagar o alimento mantém o item com a cópia de nome e kcal', async () => {
+  const { id: foodId } = (await as(A, insFood(A, 'Bolo da vó', 380))).rows[0] as { id: number };
+  const { id } = (
+    await as(
+      A,
+      `insert into meal_items (user_id, dia, refeicao, food_id, nome, kcal_100g, gramas)
+       values ('${A}', public.today_br(), 'lanche', ${foodId}, 'Bolo da vó', 380, 80) returning id`,
+    )
+  ).rows[0] as { id: number };
+  await as(A, `delete from foods where id = ${foodId}`);
+  const r = await as(A, `select food_id, nome, kcal_100g::float as k, gramas::float as g from meal_items where id = ${id}`);
+  expect(r.rows[0]).toEqual({ food_id: null, nome: 'Bolo da vó', k: 380, g: 80 });
+});
+
+test('limites do item: gramas entre 0 e 5000, refeição válida', async () => {
+  await expect(as(A, insItem(A, 'public.today_br()', 'almoco', 0))).rejects.toThrow(/check/);
+  await expect(as(A, insItem(A, 'public.today_br()', 'almoco', 5001))).rejects.toThrow(/check/);
+  await expect(as(A, insItem(A, 'public.today_br()', 'ceia'))).rejects.toThrow(/check/);
+});
+
+test('anônimo não vê alimentos nem itens', async () => {
+  await db.exec(`set role anon;`);
+  try {
+    const r = await db.query(`select (select count(*) from foods)::int as f, (select count(*) from meal_items)::int as i`);
+    expect(r.rows[0]).toEqual({ f: 0, i: 0 });
+  } finally {
+    await db.exec('reset role;');
+  }
 });
