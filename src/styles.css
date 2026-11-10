@@ -476,3 +476,44 @@ h2 {
 .swatch.custom input[type='color']::-webkit-color-swatch { border: 0; border-radius: 50%; }
 .swatch.custom input[type='color']::-moz-color-swatch { border: 0; border-radius: 50%; }
 .swatch.custom.on { border-color: var(--sw); box-shadow: inset 0 0 0 1.5px var(--sw); }
+
+/* ───────── Alimentos e calorias ───────── */
+.itens { margin-top: 6px; }
+.itens-lista { list-style: none; margin: 0; padding: 0; }
+.item-row {
+  appearance: none; border: 0; background: transparent; color: inherit; font: inherit; text-align: left;
+  width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline;
+  padding: 7px 0; border-bottom: 1px solid var(--line);
+}
+button.item-row { cursor: pointer; }
+button.item-row:hover .item-nome { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); }
+.item-nome { color: var(--ink-2); font-size: 0.95rem; min-width: 0; overflow-wrap: anywhere; }
+.item-g, .item-kcal { font-size: 0.88rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.item-g { color: var(--ink-2); }
+.item-kcal { font-weight: 600; min-width: 64px; text-align: right; }
+.itens-pe { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: 0.92rem; }
+.itens-pe .btn.ghost { margin-left: -12px; color: var(--me); }
+.itens-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+.kcal-dia { display: inline-block; margin-top: 6px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.folha { gap: 10px; height: min(640px, calc(100dvh - 32px)); }
+.busca-titulo { margin: 4px 2px 0; }
+.busca-lista { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
+.busca-item {
+  appearance: none; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+  width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 11px 6px; border-bottom: 1px solid var(--line); border-radius: 0;
+}
+.busca-item:hover { background: var(--surface-2); }
+.busca-item .muted { white-space: nowrap; }
+.campo-gramas, .form-alimento { display: flex; flex-direction: column; gap: 10px; }
+.gramas-alimento { margin: 4px 2px 0; display: flex; flex-direction: column; gap: 2px; }
+.gramas-linha { display: grid; grid-template-columns: 120px auto 1fr; align-items: center; gap: 10px; }
+.gramas-linha .input { font-size: 1.4rem; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.gramas-kcal { font-size: 1.15rem; font-weight: 700; color: var(--me); }
+.form-alimento .field { margin-bottom: 0; }
+.form-alimento-linha { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.danger-text { color: var(--danger); }
+.meus-alimentos { list-style: none; margin: 0 0 12px; padding: 0; }
+.meus-alimentos li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
