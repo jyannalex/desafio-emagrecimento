@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useApp } from '../data/AppContext';
-import { getProfiles } from '../data/repo';
+import { getLances, getProfiles } from '../data/repo';
+import { LanceVar, PONTO_ROTULO, SeloVar } from '../components/Var';
 import { FotoTarefa } from '../components/Fotos';
 import { useDailyLog } from '../hooks/useDailyLog';
 import { useFotos } from '../hooks/useFotos';
@@ -8,10 +9,10 @@ import { useItensDia } from '../hooks/useItensDia';
 import { ItensRefeicao } from '../components/Alimentos';
 import { formatKcal, somaKcal } from '../lib/calorias';
 import { useToday } from '../hooks/useToday';
-import { addDays, formatBR, formatLong, formatWeekday, isEditable } from '../lib/dates';
+import { addDays, formatBR, formatLong, formatShort, formatWeekday, isEditable } from '../lib/dates';
 import { playerColors, playerSoftVar, playerVar } from '../lib/players';
 import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
-import type { Challenge, Cor, MealItem } from '../types';
+import type { Challenge, Cor, MealItem, VarLance } from '../types';
 
 type MealKey = 'cafe' | 'almoco' | 'lanche' | 'jantar';
 type NoteKey = 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar';
@@ -29,11 +30,23 @@ export default function Hoje() {
   const [escolhido, setEscolhido] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<{ meta: number; cor: Cor } | null>(null);
   const [erro, setErro] = useState(false);
+  const [nomes, setNomes] = useState<Record<string, string>>({});
+  const [lances, setLances] = useState<VarLance[]>([]);
+  const [vendo, setVendo] = useState<VarLance | null>(null);
+
+  useEffect(() => {
+    getLances()
+      .then(setLances)
+      .catch(() => {
+        /* sem VAR visível; o dia continua */
+      });
+  }, [userId]);
 
   async function carregarPerfil() {
     setErro(false);
     try {
       const ps = await getProfiles();
+      setNomes(Object.fromEntries(ps.map((p) => [p.id, p.nome])));
       setPerfil({ meta: ps.find((p) => p.id === userId)?.meta_agua_ml ?? 2000, cor: playerColors(ps).get(userId) ?? 'tangerina' });
     } catch {
       setErro(true);
@@ -88,8 +101,63 @@ export default function Hoje() {
           </button>
         </div>
       )}
-      {perfil && challenge && <Dia key={dia} userId={userId} dia={dia} today={today} meta={perfil.meta} challenge={challenge} />}
+      <PainelVar lances={lances.filter((l) => l.status === 'aberto' && (l.alvo === userId || l.autor === userId))} meuId={userId} nomes={nomes} onVer={setVendo} />
+      {perfil && challenge && (
+        <Dia
+          key={dia}
+          userId={userId}
+          dia={dia}
+          today={today}
+          meta={perfil.meta}
+          challenge={challenge}
+          lances={lances.filter((l) => l.alvo === userId && l.dia === dia && l.status !== 'retirado')}
+          onVerLance={setVendo}
+        />
+      )}
+      {vendo && (
+        <LanceVar
+          lance={vendo}
+          meuId={userId}
+          nomes={nomes}
+          onFechar={() => setVendo(null)}
+          onMudou={(l) => {
+            setLances((ls) => ls.map((x) => (x.id === l.id ? l : x)));
+            setVendo(l);
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+/** Lances abertos com a pessoa (contra ela ou que ela abriu). */
+function PainelVar({ lances, meuId, nomes, onVer }: { lances: VarLance[]; meuId: string; nomes: Record<string, string>; onVer: (l: VarLance) => void }) {
+  if (!lances.length) return null;
+  const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  return (
+    <section className="panel var-painel">
+      <h2>
+        <span aria-hidden>📺</span> VAR
+      </h2>
+      <ul className="var-lista">
+        {lances.map((l) => {
+          const texto =
+            l.alvo === meuId
+              ? `Seu ${PONTO_ROTULO[l.ponto]} · ${formatShort(l.dia)} · contestado por ${nomes[l.autor] ?? ''}`
+              : `${maiuscula(PONTO_ROTULO[l.ponto])} de ${nomes[l.alvo] ?? ''} · ${formatShort(l.dia)} · aguardando ${nomes[l.alvo] ?? ''}`;
+          return (
+            <li key={l.id}>
+              <button type="button" aria-label={texto} onClick={() => onVer(l)}>
+                <span>{texto}</span>
+                <span className="muted" aria-hidden>
+                  ›
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -179,7 +247,24 @@ function resumo(pts: number) {
   return falta === 1 ? 'Falta 1 tarefa para fechar o dia.' : `Faltam ${falta} tarefas para fechar o dia.`;
 }
 
-function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: string; today: string; meta: number; challenge: Challenge }) {
+function Dia({
+  userId,
+  dia,
+  today,
+  meta,
+  challenge,
+  lances,
+  onVerLance,
+}: {
+  userId: string;
+  dia: string;
+  today: string;
+  meta: number;
+  challenge: Challenge;
+  /** lances abertos ou aceitos contra a pessoa neste dia */
+  lances: VarLance[];
+  onVerLance: (l: VarLance) => void;
+}) {
   const editable = isEditable(dia, today, challenge);
   const { log, loading, loadError, reload, update, addAgua, addAtividade } = useDailyLog(userId, dia, meta, editable);
   const off = !editable || loading || loadError;
@@ -198,7 +283,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
       onRemover={() => fotos.remover(t)}
     />
   );
-  const pts = dayPoints(log);
+  const pts = dayPoints(log, lances.filter((l) => l.status === 'aceito').map((l) => l.ponto));
   const pontuaveis = MEALS.filter((m) => !m.semPonto);
   const refeicoes = pontuaveis.filter((m) => log[m.key]).length;
   const pctAgua = Math.min(100, Math.round((log.agua_ml / log.meta_agua_ml_do_dia) * 100));
@@ -261,6 +346,10 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
                   <span className="task-name">{m.label}</span>
                   {m.semPonto && <span className="tag">sem ponto</span>}
                 </label>
+                {(() => {
+                  const l = lances.find((x) => x.ponto === m.key);
+                  return l ? <SeloVar lance={l} onAbrir={() => onVerLance(l)} /> : null;
+                })()}
                 {(() => {
                   const sub = somaKcal(comida.itens.filter((i) => i.refeicao === m.key));
                   return sub > 0 ? <span className="task-kcal">{formatKcal(sub)}</span> : null;

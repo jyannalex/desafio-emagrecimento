@@ -6,7 +6,8 @@ import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
 import { addDays, todayBR } from '../lib/dates';
 import { within } from '@testing-library/react';
-import type { Challenge, DailyLog, MealItem } from '../types';
+import type { Challenge, DailyLog, MealItem, VarLance } from '../types';
+import { formatShort } from '../lib/dates';
 import { compressImage } from '../lib/imagem';
 import Hoje from './Hoje';
 
@@ -37,6 +38,8 @@ beforeEach(() => {
   vi.mocked(repo.getFoods).mockResolvedValue([{ id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, kcal_unidade: null, origem: 'taco', criado_por: null }]);
   vi.mocked(repo.getMealItems).mockResolvedValue([]);
   vi.mocked(repo.recentFoods).mockResolvedValue([]);
+  vi.mocked(repo.getLances).mockResolvedValue([]);
+  vi.mocked(repo.getMensagens).mockResolvedValue([]);
   vi.mocked(repo.addMealItem).mockImplementation(async (i) => ({ ...i, id: 77 }));
 });
 
@@ -338,4 +341,46 @@ test('resumo do dia mostra quanto veio de cada refeição, e o subtotal fica na 
   const lanche = screen.getByLabelText('Lanche').closest('li')!;
   const cabeca = lanche.querySelector('.task-head')!;
   expect(within(cabeca as HTMLElement).getByText('500 kcal')).toBeInTheDocument();
+});
+
+// ---------- VAR ----------
+const lanceV = (over: Partial<VarLance>): VarLance => ({
+  id: 1, alvo: 'u1', autor: 'u2', dia: hoje, ponto: 'cafe', motivo: 'café com bolo?', status: 'aberto', created_at: 't', ...over,
+});
+
+test('painel do VAR lista os lances abertos com a pessoa e abre a conversa', async () => {
+  vi.mocked(repo.getProfiles).mockResolvedValue([
+    { id: 'u1', nome: 'Ana', meta_agua_ml: 2000 },
+    { id: 'u2', nome: 'Beto', meta_agua_ml: 2000 },
+  ]);
+  const ontem = addDays(hoje, -1);
+  vi.mocked(repo.getLances).mockResolvedValue([
+    lanceV({ id: 1, dia: ontem, ponto: 'almoco' }),
+    lanceV({ id: 2, alvo: 'u2', autor: 'u1', ponto: 'agua' }),
+    lanceV({ id: 3, ponto: 'jantar', status: 'aceito' }),
+  ]);
+  renderHoje(ativo);
+  const painel = (await screen.findByRole('heading', { name: /VAR/ })).closest('section')!;
+  expect(within(painel).getByRole('button', { name: `Seu almoço · ${formatShort(ontem)} · contestado por Beto` })).toBeInTheDocument();
+  expect(within(painel).getByRole('button', { name: `Água de Beto · ${formatShort(hoje)} · aguardando Beto` })).toBeInTheDocument();
+  expect(within(painel).queryByRole('button', { name: /jantar/ })).not.toBeInTheDocument();
+  await userEvent.click(within(painel).getByRole('button', { name: /Seu almoço/ }));
+  expect(screen.getByRole('dialog', { name: 'VAR: almoço de Ana' })).toBeInTheDocument();
+});
+
+test('sem lance aberto não mostra o painel do VAR', async () => {
+  renderHoje(ativo);
+  await screen.findByLabelText('Almoço');
+  expect(screen.queryByRole('heading', { name: /VAR/ })).not.toBeInTheDocument();
+});
+
+test('ponto anulado pelo VAR sai do anel e a refeição mostra o selo', async () => {
+  vi.mocked(repo.getLogs).mockResolvedValue([
+    { user_id: 'u1', dia: hoje, cafe: true, almoco: true, lanche: false, jantar: false, nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, nota_atividade: null, atividade: false, atividade_min: 0, agua_ml: 0, meta_agua_ml_do_dia: 2000 },
+  ]);
+  vi.mocked(repo.getLances).mockResolvedValue([lanceV({ status: 'aceito' })]);
+  renderHoje(ativo);
+  expect(await screen.findByRole('img', { name: '1 de 5 pontos' })).toBeInTheDocument();
+  const cafe = screen.getByLabelText('Café da manhã').closest('li')!;
+  expect(within(cafe).getByRole('button', { name: 'Ver lance do VAR: anulado pelo VAR' })).toBeInTheDocument();
 });

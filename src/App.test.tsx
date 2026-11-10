@@ -14,6 +14,7 @@ beforeEach(() => {
   vi.mocked(repo.getLogs).mockResolvedValue([]);
   vi.mocked(repo.getWeights).mockResolvedValue([]);
   vi.mocked(repo.getMealItems).mockResolvedValue([]);
+  vi.mocked(repo.getLances).mockResolvedValue([]);
   window.location.hash = '#/';
 });
 
