@@ -1,5 +1,5 @@
-import type { DailyLog } from '../types';
-import { ATIVIDADE_META_MIN, dayPoints, standing, winner, MAX_POINTS } from './scoring';
+import type { DailyLog, VarLance } from '../types';
+import { anuladosPorDia, ATIVIDADE_META_MIN, dayPoints, standing, winner, MAX_POINTS } from './scoring';
 
 const base = { cafe: false, almoco: false, lanche: false, jantar: false, atividade: false, atividade_min: 0, agua_ml: 0, meta_agua_ml_do_dia: 2000 };
 const log = (dia: string, p: Partial<DailyLog>) =>
@@ -65,4 +65,51 @@ test('winner', () => {
   expect(winner({ id: 'a', total: 10 }, { id: 'b', total: 9 })).toBe('a');
   expect(winner({ id: 'a', total: 9 }, { id: 'b', total: 12 })).toBe('b');
   expect(winner({ id: 'a', total: 9 }, { id: 'b', total: 9 })).toBe('empate');
+});
+
+// ---------- VAR ----------
+const tudo = { ...base, cafe: true, almoco: true, jantar: true, atividade_min: 60, agua_ml: 2000 };
+
+test('ponto anulado pelo VAR não conta; anular ponto não feito não tira nada', () => {
+  expect(dayPoints(tudo, ['almoco'])).toBe(4);
+  expect(dayPoints(tudo, ['almoco', 'agua'])).toBe(3);
+  expect(dayPoints({ ...base, cafe: true }, ['almoco'])).toBe(1);
+  expect(dayPoints({ ...base }, ['cafe', 'almoco', 'jantar', 'atividade', 'agua'])).toBe(0);
+});
+
+const lance = (dia: string, ponto: VarLance['ponto'], status: VarLance['status'], alvo = 'a'): VarLance => ({
+  id: Math.random(),
+  alvo,
+  autor: alvo === 'a' ? 'b' : 'a',
+  dia,
+  ponto,
+  motivo: 'xxx',
+  status,
+  created_at: '',
+});
+
+test('anuladosPorDia junta só os aceitos da pessoa', () => {
+  const m = anuladosPorDia(
+    [
+      lance('2026-11-06', 'cafe', 'aceito'),
+      lance('2026-11-06', 'agua', 'aceito'),
+      lance('2026-11-06', 'jantar', 'aberto'),
+      lance('2026-11-07', 'almoco', 'retirado'),
+      lance('2026-11-07', 'cafe', 'aceito', 'b'),
+    ],
+    'a',
+  );
+  expect([...m]).toEqual([['2026-11-06', ['cafe', 'agua']]]);
+});
+
+test('standing desconta anulados só nos dias certos', () => {
+  const logs = [log('2026-11-01', { cafe: true }), log('2026-11-07', { cafe: true, almoco: true }), log('2026-11-08', { cafe: true })];
+  const anulados = new Map([
+    ['2026-11-07', ['almoco' as const]],
+    ['2026-11-08', ['cafe' as const]],
+  ]);
+  const s = standing(logs, { ...ch, data_inicio: '2026-11-01' }, '2026-11-08', anulados);
+  expect(s.total.points).toBe(2); // 01: 1, 07: 2-1, 08: 1-1
+  expect(s.today.points).toBe(0);
+  expect(s.week.points).toBe(1); // semana 02..08: (07: 2-1) + (08: 1-1); o dia 01 é da semana anterior
 });

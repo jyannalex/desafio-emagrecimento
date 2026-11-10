@@ -49,3 +49,19 @@ export type MealItem = {
   unidades: number | null;
   kcal_unidade: number | null;
 };
+
+/** Ponto que pode ir para o VAR (o lanche não vale ponto). */
+export type Ponto = 'cafe' | 'almoco' | 'jantar' | 'atividade' | 'agua';
+
+export type VarLance = {
+  id: number;
+  alvo: string;
+  autor: string;
+  dia: string;
+  ponto: Ponto;
+  motivo: string;
+  status: 'aberto' | 'aceito' | 'retirado';
+  created_at: string;
+};
+
+export type VarMensagem = { id: number; lance_id: number; autor: string; texto: string; created_at: string };
