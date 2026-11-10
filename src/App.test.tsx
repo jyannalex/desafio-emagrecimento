@@ -13,6 +13,7 @@ beforeEach(() => {
   vi.mocked(repo.getProfiles).mockResolvedValue([]);
   vi.mocked(repo.getLogs).mockResolvedValue([]);
   vi.mocked(repo.getWeights).mockResolvedValue([]);
+  vi.mocked(repo.getMealItems).mockResolvedValue([]);
   window.location.hash = '#/';
 });
 
