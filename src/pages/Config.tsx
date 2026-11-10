@@ -29,6 +29,7 @@ export default function Config() {
   const [nomeDesafio, setNomeDesafio] = useState(challenge?.nome ?? 'Nosso desafio');
   const [inicio, setInicio] = useState(challenge?.data_inicio ?? '');
   const [fim, setFim] = useState(challenge?.data_fim ?? '');
+  const [premio, setPremio] = useState(challenge?.premio ?? '');
   const [msgDesafio, setMsgDesafio] = useState<Msg>(null);
   const [salvandoDesafio, setSalvandoDesafio] = useState(false);
 
@@ -145,7 +146,7 @@ export default function Config() {
     setSalvandoDesafio(true);
     try {
       const novo = challenge === null;
-      await saveChallenge({ nome: nomeDesafio.trim(), data_inicio: inicio, data_fim: fim });
+      await saveChallenge({ nome: nomeDesafio.trim(), data_inicio: inicio, data_fim: fim, premio: premio.trim() || null });
       await reloadChallenge();
       if (novo) navigate('/', { replace: true });
       else setMsgDesafio({ erro: false, texto: 'Desafio salvo' });
@@ -199,6 +200,18 @@ export default function Config() {
             <input className="input" type="date" value={fim} onChange={(e) => setFim(e.target.value)} />
           </label>
         </div>
+        <label className="field">
+          <span>Prêmio do desafio</span>
+          <input
+            className="input"
+            type="text"
+            aria-label="Prêmio do desafio"
+            placeholder="Ex.: quem perder paga o jantar"
+            value={premio}
+            onChange={(e) => setPremio(e.target.value)}
+            maxLength={120}
+          />
+        </label>
         <Aviso m={msgDesafio} />
         <button className="btn primary block" type="submit" disabled={salvandoDesafio}>
           Salvar desafio

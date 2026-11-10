@@ -109,6 +109,7 @@ export default function Ranking() {
       <p className="muted" style={{ margin: '0 0 18px' }}>
         De {formatShort(challenge.data_inicio)} a {formatShort(challenge.data_fim)}. <span>{quando}</span>
       </p>
+      {challenge.premio && <p className="premio">Prêmio: {challenge.premio}</p>}
 
       <section className="panel">
         <div className="duel-names">

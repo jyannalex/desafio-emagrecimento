@@ -2,13 +2,13 @@ import { render, screen } from '@testing-library/react';
 import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
 import * as dates from '../lib/dates';
-import type { DailyLog } from '../types';
+import type { Challenge, DailyLog } from '../types';
 import Ranking from './Ranking';
 
 vi.mock('../data/repo');
 vi.mock('../lib/dates', async (orig) => ({ ...(await orig<typeof import('../lib/dates')>()), todayBR: vi.fn() }));
 
-const ch = { id: 1 as const, nome: 'Verão', data_inicio: '2026-11-05', data_fim: '2026-11-20' };
+const ch: Challenge = { id: 1, nome: 'Verão', data_inicio: '2026-11-05', data_fim: '2026-11-20', premio: null };
 const log = (user_id: string, dia: string, p: Partial<DailyLog>): DailyLog => ({
   user_id, dia, cafe: false, almoco: false, lanche: false, jantar: false,
   nota_cafe: null, nota_almoco: null, nota_lanche: null, nota_jantar: null, nota_atividade: null,
@@ -71,4 +71,14 @@ test('erro ao carregar mostra tentar de novo', async () => {
   vi.mocked(repo.getLogs).mockRejectedValue(new Error('x'));
   renderRanking('2026-11-08');
   expect(await screen.findByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument();
+});
+
+test('mostra o prêmio do desafio', async () => {
+  ch.premio = 'Jantar no japonês';
+  try {
+    renderRanking('2026-11-08');
+    expect(await screen.findByText('Prêmio: Jantar no japonês')).toBeInTheDocument();
+  } finally {
+    ch.premio = null;
+  }
 });

@@ -55,7 +55,7 @@ test('sem desafio: configura e vai para Hoje', async () => {
   await preencherDesafio('Verão', '2026-11-10', '2027-02-07');
   await userEvent.click(screen.getByRole('button', { name: 'Salvar desafio' }));
   await waitFor(() =>
-    expect(repo.saveChallenge).toHaveBeenCalledWith({ nome: 'Verão', data_inicio: '2026-11-10', data_fim: '2027-02-07' }),
+    expect(repo.saveChallenge).toHaveBeenCalledWith({ nome: 'Verão', data_inicio: '2026-11-10', data_fim: '2027-02-07', premio: null }),
   );
   expect(reloadChallenge).toHaveBeenCalled();
   expect(await screen.findByText('Página Hoje')).toBeInTheDocument();
@@ -254,4 +254,16 @@ test('meus alimentos: apagar pede confirmação', async () => {
   expect(repo.deleteFood).toHaveBeenCalledWith(50);
   await waitFor(() => expect(screen.queryByText('Marmita da tia')).not.toBeInTheDocument());
   confirmar.mockRestore();
+});
+
+test('desafio: grava o prêmio', async () => {
+  renderConfig({ ...desafio, premio: 'Jantar no japonês' });
+  const premio = await screen.findByLabelText('Prêmio do desafio');
+  expect(premio).toHaveValue('Jantar no japonês');
+  await userEvent.clear(premio);
+  await userEvent.type(premio, '  Viagem para a praia ');
+  await userEvent.click(screen.getByRole('button', { name: 'Salvar desafio' }));
+  await waitFor(() =>
+    expect(repo.saveChallenge).toHaveBeenCalledWith({ nome: 'X', data_inicio: '2026-11-01', data_fim: '2026-12-31', premio: 'Viagem para a praia' }),
+  );
 });

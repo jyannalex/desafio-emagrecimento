@@ -517,3 +517,8 @@ button.item-row:hover .item-nome { color: var(--ink); text-decoration: underline
 .danger-text { color: var(--danger); }
 .meus-alimentos { list-style: none; margin: 0 0 12px; padding: 0; }
 .meus-alimentos li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+
+.premio {
+  margin: -6px 0 18px; padding: 10px 14px; border-radius: var(--r-md);
+  background: var(--surface); box-shadow: var(--shadow); font-weight: 700;
+}

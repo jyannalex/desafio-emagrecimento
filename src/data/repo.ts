@@ -16,7 +16,7 @@ export async function updateProfile(id: string, p: Partial<Pick<Profile, 'nome' 
 
 export async function getChallenge(): Promise<Challenge | null> {
   return check(
-    await db().from('challenge').select('id, nome, data_inicio, data_fim').eq('id', 1).maybeSingle(),
+    await db().from('challenge').select('id, nome, data_inicio, data_fim, premio').eq('id', 1).maybeSingle(),
   ) as Challenge | null;
 }
 

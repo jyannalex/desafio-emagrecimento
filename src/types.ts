@@ -8,7 +8,7 @@ export type Tarefa = 'cafe' | 'almoco' | 'lanche' | 'jantar' | 'atividade';
 
 export type Photo = { id: number; user_id: string; dia: string; tarefa: Tarefa; path: string; bytes: number };
 
-export type Challenge = { id: 1; nome: string; data_inicio: string; data_fim: string };
+export type Challenge = { id: 1; nome: string; data_inicio: string; data_fim: string; premio?: string | null };
 
 export type DailyLog = {
   user_id: string;

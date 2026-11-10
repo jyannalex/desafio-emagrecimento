@@ -31,6 +31,7 @@ beforeAll(async () => {
   await db.exec(read('../migrations/0004_cor_livre.sql'));
   await db.exec(read('../migrations/0005_alimentos.sql'));
   await db.exec(read('../migrations/0006_taco.sql'));
+  await db.exec(read('../migrations/0007_premio.sql'));
   await db.exec(`
     insert into auth.users (id, email, raw_user_meta_data) values
       ('${A}', 'ana@x.com', '{"nome":"Ana"}'), ('${B}', 'beto@x.com', '{}');
@@ -332,4 +333,11 @@ test('anônimo não vê alimentos nem itens', async () => {
   } finally {
     await db.exec('reset role;');
   }
+});
+
+test('prêmio do desafio: grava texto de até 120 letras', async () => {
+  const ok = await as(A, `update challenge set premio = 'Jantar no japonês' where id = 1`);
+  expect(ok.affectedRows).toBe(1);
+  await expect(as(A, `update challenge set premio = '${'x'.repeat(121)}' where id = 1`)).rejects.toThrow(/check/);
+  await as(A, `update challenge set premio = null where id = 1`);
 });
