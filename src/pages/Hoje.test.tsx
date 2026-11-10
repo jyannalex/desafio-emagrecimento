@@ -5,7 +5,8 @@ import { ToastProvider } from '../components/Toast';
 import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
 import { addDays, todayBR } from '../lib/dates';
-import type { Challenge, DailyLog } from '../types';
+import { within } from '@testing-library/react';
+import type { Challenge, DailyLog, MealItem } from '../types';
 import { compressImage } from '../lib/imagem';
 import Hoje from './Hoje';
 
@@ -33,6 +34,10 @@ beforeEach(() => {
   vi.mocked(repo.getPhotos).mockResolvedValue([]);
   vi.mocked(repo.photoUrls).mockResolvedValue({});
   URL.createObjectURL = vi.fn(() => 'blob:previa');
+  vi.mocked(repo.getFoods).mockResolvedValue([{ id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, origem: 'taco', criado_por: null }]);
+  vi.mocked(repo.getMealItems).mockResolvedValue([]);
+  vi.mocked(repo.recentFoodIds).mockResolvedValue([]);
+  vi.mocked(repo.addMealItem).mockImplementation(async (i) => ({ ...i, id: 77 }));
 });
 
 const ativo = { id: 1 as const, nome: 'X', data_inicio: addDays(hoje, -30), data_fim: addDays(hoje, 30) };
@@ -195,4 +200,60 @@ test('falha ao enviar foto avisa', async () => {
   await userEvent.upload(escolher, new File(['x'], 'j.jpg', { type: 'image/jpeg' }));
   expect(await screen.findByText('A foto não foi enviada, tente de novo')).toBeInTheDocument();
   expect(screen.getByLabelText('Adicionar foto do jantar')).toBeInTheDocument();
+});
+
+// ---------- alimentos e calorias ----------
+
+const item = (over: Partial<MealItem>): MealItem => ({
+  id: 1,
+  user_id: 'u1',
+  dia: hoje,
+  refeicao: 'almoco',
+  food_id: 1,
+  nome: 'Arroz branco cozido',
+  kcal_100g: 128,
+  gramas: 120,
+  ...over,
+});
+
+test('itens do almoço mostram subtotal e o total do dia, sem mudar pontos', async () => {
+  vi.mocked(repo.getMealItems).mockResolvedValue([
+    item({}),
+    item({ id: 2, food_id: 2, nome: 'Feijão carioca cozido', kcal_100g: 76, gramas: 140 }),
+  ]);
+  renderHoje(ativo);
+  expect(await screen.findByText('260 kcal hoje')).toBeInTheDocument();
+  expect(screen.getByText('260 kcal')).toBeInTheDocument();
+  expect(screen.getByText('Feijão carioca cozido')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '0 de 5 pontos' })).toBeInTheDocument();
+  expect(repo.getMealItems).toHaveBeenCalledWith(hoje, hoje, 'u1');
+});
+
+test('adicionar alimento no almoço atualiza o total do dia', async () => {
+  renderHoje(ativo);
+  const add = await screen.findByRole('button', { name: 'Adicionar alimento no almoço' });
+  await userEvent.click(add);
+  const dlg = screen.getByRole('dialog', { name: 'Adicionar alimento' });
+  await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
+  await userEvent.click(await within(dlg).findByRole('button', { name: /Arroz branco cozido/ }));
+  await userEvent.type(within(dlg).getByLabelText('Gramas'), '120');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Adicionar' }));
+  expect(await screen.findByText('154 kcal hoje')).toBeInTheDocument();
+  expect(repo.addMealItem).toHaveBeenCalledWith(expect.objectContaining({ refeicao: 'almoco', dia: hoje, gramas: 120 }));
+});
+
+test('cada refeição tem o botão de adicionar alimento', async () => {
+  renderHoje(ativo);
+  for (const r of ['café da manhã', 'almoço', 'lanche', 'jantar']) {
+    expect(await screen.findByRole('button', { name: `Adicionar alimento no ${r}` })).toBeInTheDocument();
+  }
+});
+
+test('dia travado mostra os itens sem botões de alimento', async () => {
+  const naoComecou = { ...ativo, data_inicio: addDays(hoje, 1), data_fim: addDays(hoje, 30) };
+  vi.mocked(repo.getMealItems).mockResolvedValue([item({})]);
+  renderHoje(naoComecou);
+  expect(await screen.findByText('Arroz branco cozido')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Adicionar alimento/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Arroz branco cozido,/ })).not.toBeInTheDocument();
 });

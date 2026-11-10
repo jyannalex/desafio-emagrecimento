@@ -4,6 +4,9 @@ import { getProfiles } from '../data/repo';
 import { FotoTarefa } from '../components/Fotos';
 import { useDailyLog } from '../hooks/useDailyLog';
 import { useFotos } from '../hooks/useFotos';
+import { useItensDia } from '../hooks/useItensDia';
+import { ItensRefeicao } from '../components/Alimentos';
+import { formatKcal, somaKcal } from '../lib/calorias';
 import { useToday } from '../hooks/useToday';
 import { addDays, formatBR, formatLong, formatWeekday, isEditable } from '../lib/dates';
 import { playerColors, playerSoftVar, playerVar } from '../lib/players';
@@ -152,6 +155,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
   const { log, loading, loadError, reload, update, addAgua, addAtividade } = useDailyLog(userId, dia, meta, editable);
   const off = !editable || loading || loadError;
   const fotos = useFotos(userId, dia);
+  const comida = useItensDia(userId, dia);
   const foto = (t: MealKey | 'atividade', rotulo: string) => (
     <FotoTarefa
       rotulo={rotulo}
@@ -178,6 +182,12 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
           <h1>{tituloDia(dia, today)}</h1>
           <div className="date">{formatLong(dia)}</div>
           {editable && !loading && <p className="muted small" style={{ margin: '8px 0 0' }}>{resumo(pts)}</p>}
+          {comida.itens.length > 0 && (
+            <span className="kcal-dia">
+              {formatKcal(somaKcal(comida.itens))}
+              {dia === today ? ' hoje' : ''}
+            </span>
+          )}
         </div>
         <Ring pts={pts} />
       </header>
@@ -215,6 +225,17 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
               <div className="task-sub note-row">
                 <Nota label={m.noteLabel} value={log[m.note]} disabled={off} onSave={(v) => update({ [m.note]: v })} />
                 {foto(m.key, m.foto)}
+              </div>
+              <div className="task-sub">
+                <ItensRefeicao
+                  userId={userId}
+                  rotulo={m.foto.slice(3)}
+                  itens={comida.itens.filter((i) => i.refeicao === m.key)}
+                  podeEditar={editable && comida.carregado}
+                  onAdicionar={(food, g) => comida.adicionar(m.key, food, g)}
+                  onMudar={comida.mudarGramas}
+                  onRemover={comida.remover}
+                />
               </div>
             </li>
           ))}
