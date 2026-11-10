@@ -616,3 +616,43 @@ button.item-row:hover .item-nome { color: var(--ink); text-decoration: underline
 .cad-box { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1.5px dashed var(--line); border-radius: var(--r-md); }
 .cad-box .busca-titulo { margin: 0; }
 .form-dica { margin: -4px 2px 0; }
+
+/* ───────── VAR ───────── */
+:root { --var: light-dark(#b7791f, #f2c14e); --var-soft: light-dark(#fdf1d8, #3a2f17); }
+.var-form { display: flex; flex-direction: column; gap: 10px; }
+.var-alvo { margin: 0; font-weight: 700; font-size: 1.05rem; }
+.var-texto { min-height: 88px; resize: vertical; font: inherit; }
+.var-data { margin: -4px 2px 0; }
+.var-status { margin: 0; padding: 10px 12px; border-radius: var(--r-md); font-weight: 600; font-size: 0.92rem; }
+.var-status.aberto { background: var(--var-soft); color: var(--var); }
+.var-status.aceito { background: var(--danger-soft); color: var(--danger); }
+.var-status.retirado { background: var(--surface-2); color: var(--ink-2); }
+.conversa { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.balao {
+  align-self: flex-start; max-width: 85%; padding: 8px 12px; border-radius: 16px 16px 16px 4px;
+  background: var(--surface-2); overflow-wrap: anywhere;
+}
+.balao.meu { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: var(--me-soft); }
+.balao-quem { display: block; font-size: 0.75rem; font-weight: 700; color: var(--ink-2); margin-bottom: 2px; }
+.var-escrever { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.selo-var {
+  appearance: none; border: 0; cursor: pointer; font: inherit; font-size: 0.75rem; font-weight: 700;
+  padding: 2px 9px; border-radius: var(--r-pill); white-space: nowrap; vertical-align: middle;
+}
+.selo-var.aberto { background: var(--var-soft); color: var(--var); }
+.selo-var.aceito { background: var(--danger-soft); color: var(--danger); }
+.var-btn {
+  appearance: none; cursor: pointer; font: inherit; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.02em;
+  padding: 2px 8px; border-radius: var(--r-pill); border: 1.5px solid var(--var); background: transparent; color: var(--var);
+  vertical-align: middle; margin-left: 6px;
+}
+.anulado { text-decoration: line-through; text-decoration-color: var(--danger); }
+.var-painel { border: 1.5px solid var(--var); }
+.var-painel h2 { display: flex; align-items: center; gap: 8px; }
+.var-lista { list-style: none; margin: 0; padding: 0; }
+.var-lista button {
+  appearance: none; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: transparent; border: 0; border-top: 1px solid var(--line); padding: 10px 0;
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+}
+.var-lista li:first-child button { border-top: 0; }
