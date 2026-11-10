@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { AppCtx } from '../data/AppContext';
 import * as repo from '../data/repo';
 import * as dates from '../lib/dates';
-import type { DailyLog } from '../types';
+import type { DailyLog, MealItem } from '../types';
 import Historico from './Historico';
 
 vi.mock('../data/repo');
@@ -36,6 +36,7 @@ beforeEach(() => {
   ]);
   vi.mocked(repo.getPhotos).mockResolvedValue([]);
   vi.mocked(repo.photoUrls).mockResolvedValue({});
+  vi.mocked(repo.getMealItems).mockResolvedValue([]);
 });
 
 test('lista os dias do mais recente ao início com pontos de cada um', async () => {
@@ -81,4 +82,42 @@ test('no detalhe do dia aparecem as fotos de cada um', async () => {
   const dlg = screen.getByRole('dialog', { name: 'Foto do café da manhã de Beto' });
   expect(within(dlg).getByRole('img')).toHaveAttribute('src', 'https://x/cafe-beto.jpg');
   expect(within(dlg).queryByRole('button', { name: 'Remover foto' })).not.toBeInTheDocument();
+});
+
+const item = (user_id: string, dia: string, over: Partial<MealItem> = {}): MealItem => ({
+  id: Math.random(),
+  user_id,
+  dia,
+  refeicao: 'almoco',
+  food_id: 1,
+  nome: 'Arroz branco cozido',
+  kcal_100g: 128,
+  gramas: 120,
+  ...over,
+});
+
+test('no detalhe do dia aparecem os alimentos e o total de cada um', async () => {
+  vi.mocked(repo.getMealItems).mockResolvedValue([
+    item('a', '2026-11-06'),
+    item('a', '2026-11-06', { refeicao: 'jantar', nome: 'Feijão carioca cozido', kcal_100g: 76, gramas: 140 }),
+    item('b', '2026-11-06', { refeicao: 'cafe', nome: 'Pão francês', kcal_100g: 300, gramas: 50 }),
+  ]);
+  renderHist('2026-11-07');
+  await userEvent.click(await screen.findByRole('button', { name: /6 de novembro/ }));
+  expect(repo.getMealItems).toHaveBeenCalledWith('2026-11-06', '2026-11-06');
+  const det = screen.getByTestId('detalhe-2026-11-06');
+  const [ana, beto] = within(det).getAllByRole('heading', { level: 3 }).map((h) => h.closest('.detail-col') as HTMLElement);
+  expect(await within(ana).findByText('Arroz branco cozido · 120 g · 154 kcal')).toBeInTheDocument();
+  expect(within(ana).getByText('Feijão carioca cozido · 140 g · 106 kcal')).toBeInTheDocument();
+  expect(within(ana).getByText('Total: 260 kcal')).toBeInTheDocument();
+  // Beto não tem registro do dia, mas registrou alimento: aparece mesmo assim
+  expect(within(beto).getByText('Pão francês · 50 g · 150 kcal')).toBeInTheDocument();
+  expect(within(beto).getByText('Total: 150 kcal')).toBeInTheDocument();
+});
+
+test('sem alimentos não mostra total', async () => {
+  renderHist('2026-11-07');
+  await userEvent.click(await screen.findByRole('button', { name: /6 de novembro/ }));
+  const det = screen.getByTestId('detalhe-2026-11-06');
+  expect(within(det).queryByText(/^Total:/)).not.toBeInTheDocument();
 });

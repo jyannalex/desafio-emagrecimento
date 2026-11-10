@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useApp } from '../data/AppContext';
 import { FotoMini } from '../components/Fotos';
-import { getLogs, getPhotos, getProfiles, photoUrls } from '../data/repo';
+import { getLogs, getMealItems, getPhotos, getProfiles, photoUrls } from '../data/repo';
+import { formatKcal, kcalItem, somaKcal } from '../lib/calorias';
 import { useToday } from '../hooks/useToday';
 import { addDays, formatShort, formatWeekday } from '../lib/dates';
 import { playerColors, playerSlot, playerVar } from '../lib/players';
 import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
-import type { DailyLog, Photo, Profile, Tarefa } from '../types';
+import type { DailyLog, MealItem, Photo, Profile, Tarefa } from '../types';
 
 const REFEICOES: { key: 'cafe' | 'almoco' | 'lanche' | 'jantar'; nota: 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar'; label: string; foto: string }[] = [
   { key: 'cafe', nota: 'nota_cafe', label: 'Café da manhã', foto: 'do café da manhã' },
@@ -21,11 +22,17 @@ export default function Historico() {
   const [dados, setDados] = useState<{ profiles: Profile[]; logs: DailyLog[] } | null>(null);
   const [erro, setErro] = useState(false);
   const [aberto, setAberto] = useState<string | null>(null);
+  const [itensDia, setItensDia] = useState<{ dia: string; itens: MealItem[] } | null>(null);
   const [fotosDia, setFotosDia] = useState<{ dia: string; fotos: Photo[]; urls: Record<string, string> } | null>(null);
 
   useEffect(() => {
     if (!aberto) return;
     let vivo = true;
+    getMealItems(aberto, aberto)
+      .then((itens) => vivo && setItensDia({ dia: aberto, itens }))
+      .catch(() => {
+        /* sem alimentos; o detalhe continua */
+      });
     (async () => {
       try {
         const fotos = await getPhotos(aberto, aberto);
@@ -140,6 +147,7 @@ export default function Historico() {
                         log={porChave.get(`${p.id}|${d}`)}
                         fotos={fotosDia?.dia === d ? fotosDia.fotos.filter((f) => f.user_id === p.id) : []}
                         urls={fotosDia?.urls ?? {}}
+                        itens={itensDia?.dia === d ? itensDia.itens.filter((i) => i.user_id === p.id) : []}
                       />
                     ))}
                   </div>
@@ -161,7 +169,21 @@ function Item({ ok, children }: { ok: boolean; children: ReactNode }) {
   );
 }
 
-function Detalhe({ nome, cor, log, fotos, urls }: { nome: string; cor: string; log?: DailyLog; fotos: Photo[]; urls: Record<string, string> }) {
+function Detalhe({
+  nome,
+  cor,
+  log,
+  fotos,
+  urls,
+  itens,
+}: {
+  nome: string;
+  cor: string;
+  log?: DailyLog;
+  fotos: Photo[];
+  urls: Record<string, string>;
+  itens: MealItem[];
+}) {
   const foto = (t: Tarefa, rotulo: string) => {
     const f = fotos.find((x) => x.tarefa === t);
     return f ? <FotoMini rotulo={`${rotulo} de ${nome}`} url={urls[f.path]} /> : null;
@@ -169,28 +191,44 @@ function Detalhe({ nome, cor, log, fotos, urls }: { nome: string; cor: string; l
   return (
     <div className="detail-col">
       <h3 style={{ color: cor }}>{nome}</h3>
-      {!log ? (
+      {!log && !itens.length ? (
         <p className="muted small" style={{ margin: 0 }}>
           Nada registrado neste dia.
         </p>
       ) : (
         <ul>
           {REFEICOES.map((r) => (
-            <Item key={r.key} ok={log[r.key]}>
+            <Item key={r.key} ok={!!log?.[r.key]}>
               {r.label}
-              {log[r.nota] && <span className="nota">{log[r.nota]}</span>}
+              {log?.[r.nota] && <span className="nota">{log[r.nota]}</span>}
+              {itens
+                .filter((i) => i.refeicao === r.key)
+                .map((i) => (
+                  <span className="nota" key={i.id}>
+                    {i.nome} · {i.gramas.toLocaleString('pt-BR')} g · {formatKcal(kcalItem(i.gramas, i.kcal_100g))}
+                  </span>
+                ))}
               {foto(r.key, r.foto)}
             </Item>
           ))}
-          <Item ok={log.atividade_min >= ATIVIDADE_META_MIN}>
-            Atividade física · {log.atividade_min} min
-            {log.nota_atividade && <span className="nota">{log.nota_atividade}</span>}
-            {foto('atividade', 'da atividade')}
-          </Item>
-          <Item ok={log.agua_ml >= log.meta_agua_ml_do_dia}>
-            Água · {log.agua_ml} / {log.meta_agua_ml_do_dia} ml
-          </Item>
+          {log && (
+            <>
+              <Item ok={log.atividade_min >= ATIVIDADE_META_MIN}>
+                Atividade física · {log.atividade_min} min
+                {log.nota_atividade && <span className="nota">{log.nota_atividade}</span>}
+                {foto('atividade', 'da atividade')}
+              </Item>
+              <Item ok={log.agua_ml >= log.meta_agua_ml_do_dia}>
+                Água · {log.agua_ml} / {log.meta_agua_ml_do_dia} ml
+              </Item>
+            </>
+          )}
         </ul>
+      )}
+      {itens.length > 0 && (
+        <p className="small" style={{ margin: '8px 0 0', fontWeight: 700 }}>
+          Total: {formatKcal(somaKcal(itens))}
+        </p>
       )}
     </div>
   );
