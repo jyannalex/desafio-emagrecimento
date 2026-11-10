@@ -29,3 +29,19 @@ export type DailyLog = {
 };
 
 export type Weight = { id: number; user_id: string; dia: string; kg: number };
+
+export type Refeicao = 'cafe' | 'almoco' | 'lanche' | 'jantar';
+
+export type Food = { id: number; nome: string; kcal_100g: number; origem: 'taco' | 'custom'; criado_por: string | null };
+
+/** Item comido numa refeição. `nome` e `kcal_100g` são cópia do alimento no momento do registro. */
+export type MealItem = {
+  id: number;
+  user_id: string;
+  dia: string;
+  refeicao: Refeicao;
+  food_id: number | null;
+  nome: string;
+  kcal_100g: number;
+  gramas: number;
+};
