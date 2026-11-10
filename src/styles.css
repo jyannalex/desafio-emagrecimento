@@ -656,3 +656,4 @@ button.item-row:hover .item-nome { color: var(--ink); text-decoration: underline
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
 .var-lista li:first-child button { border-top: 0; }
+.var-anulados { margin-top: 4px; font-size: 0.78rem; font-weight: 700; color: var(--danger); }

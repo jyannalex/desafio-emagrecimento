@@ -34,6 +34,7 @@ beforeEach(() => {
     log('a', '2026-11-08', { cafe: true, almoco: true }),
     log('b', '2026-11-06', { cafe: true, almoco: true, lanche: true, jantar: true, atividade_min: 60 }),
   ]);
+  vi.mocked(repo.getLances).mockResolvedValue([]);
 });
 
 test('em andamento mostra placar de cada um e dias restantes', async () => {
@@ -81,4 +82,15 @@ test('mostra o prêmio do desafio', async () => {
   } finally {
     ch.premio = null;
   }
+});
+
+test('ponto anulado pelo VAR sai do placar e aparece embaixo do nome', async () => {
+  vi.mocked(repo.getLances).mockResolvedValue([
+    { id: 1, alvo: 'b', autor: 'a', dia: '2026-11-06', ponto: 'almoco', motivo: 'coxinha', status: 'aceito', created_at: 't' },
+    { id: 2, alvo: 'b', autor: 'a', dia: '2026-11-06', ponto: 'jantar', motivo: 'pizza', status: 'aberto', created_at: 't' },
+  ]);
+  renderRanking('2026-11-08');
+  expect(await screen.findByLabelText('Beto, total: 3 pontos, 15%')).toBeInTheDocument();
+  expect(screen.getByText('1 ponto anulado pelo VAR')).toBeInTheDocument();
+  expect(screen.getByText(/Empatados/)).toBeInTheDocument();
 });

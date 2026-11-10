@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../data/AppContext';
-import { getLogs, getProfiles } from '../data/repo';
+import { getLances, getLogs, getProfiles } from '../data/repo';
 import { useToday } from '../hooks/useToday';
 import { formatShort } from '../lib/dates';
 import { playerColors, playerSlot, playerVar } from '../lib/players';
-import { standing, winner, type Score, type Standing } from '../lib/scoring';
-import type { DailyLog, Profile } from '../types';
+import { anuladosPorDia, standing, winner, type Score, type Standing } from '../lib/scoring';
+import type { DailyLog, Profile, VarLance } from '../types';
 
 const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
 
-type Lado = { p: Profile; s: Standing; cor: string };
+type Lado = { p: Profile; s: Standing; cor: string; anulados: number };
 
 export default function Ranking() {
   const { challenge } = useApp();
   const today = useToday();
-  const [dados, setDados] = useState<{ profiles: Profile[]; logs: DailyLog[] } | null>(null);
+  const [dados, setDados] = useState<{ profiles: Profile[]; logs: DailyLog[]; lances: VarLance[] } | null>(null);
   const [erro, setErro] = useState(false);
   const [montado, setMontado] = useState(false);
 
@@ -22,8 +22,12 @@ export default function Ranking() {
     if (!challenge) return;
     setErro(false);
     try {
-      const [profiles, logs] = await Promise.all([getProfiles(), getLogs(challenge.data_inicio, challenge.data_fim)]);
-      setDados({ profiles, logs });
+      const [profiles, logs, lances] = await Promise.all([
+        getProfiles(),
+        getLogs(challenge.data_inicio, challenge.data_fim),
+        getLances().catch(() => [] as VarLance[]),
+      ]);
+      setDados({ profiles, logs, lances });
     } catch {
       setErro(true);
     }
@@ -70,7 +74,8 @@ export default function Ranking() {
     .map((p) => ({
       p,
       cor: playerVar(cores.get(p.id)!),
-      s: standing(dados.logs.filter((l) => l.user_id === p.id), challenge, today),
+      s: standing(dados.logs.filter((l) => l.user_id === p.id), challenge, today, anuladosPorDia(dados.lances, p.id)),
+      anulados: dados.lances.filter((l) => l.alvo === p.id && l.status === 'aceito').length,
     }));
   const [a, b] = lados;
   const status = a?.s.status ?? (today < challenge.data_inicio ? 'antes' : 'andamento');
@@ -157,6 +162,7 @@ function Lado({ lado, lider, direita }: { lado: Lado; lider: boolean; direita?: 
         {t.points}
       </div>
       <div className="muted small">pontos</div>
+      {lado.anulados > 0 && <div className="var-anulados">{plural(lado.anulados, 'ponto anulado', 'pontos anulados')} pelo VAR</div>}
     </div>
   );
 }
