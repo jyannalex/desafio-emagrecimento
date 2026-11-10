@@ -33,6 +33,7 @@ beforeAll(async () => {
   await db.exec(read('../migrations/0006_taco.sql'));
   await db.exec(read('../migrations/0007_premio.sql'));
   await db.exec(read('../migrations/0008_por_unidade.sql'));
+  await db.exec(read('../migrations/0009_var.sql'));
   await db.exec(`
     insert into auth.users (id, email, raw_user_meta_data) values
       ('${A}', 'ana@x.com', '{"nome":"Ana"}'), ('${B}', 'beto@x.com', '{}');
@@ -370,4 +371,76 @@ test('item por unidade: unidades + kcal de 1 unidade, sem gramas', async () => {
   await expect(
     as(A, `insert into meal_items (user_id, dia, refeicao, nome, unidades, kcal_unidade) values ('${A}', public.today_br(), 'lanche', 'X', 101, 10)`),
   ).rejects.toThrow(/check/);
+});
+
+// ---------- VAR ----------
+const insLance = (autor: string, alvo: string, ponto = 'cafe', dia = 'public.today_br()', motivo = 'comeu coxinha') =>
+  `insert into var_lances (autor, alvo, dia, ponto, motivo) values ('${autor}', '${alvo}', ${dia}, '${ponto}', '${motivo}') returning id`;
+const idDe = async (q: Promise<{ rows: unknown[] }>) => ((await q).rows[0] as { id: number }).id;
+
+test('VAR: só abre em ponto que o outro fez', async () => {
+  await db.exec(`update daily_logs set cafe = true, almoco = true, agua_ml = 2000 where user_id = '${B}' and dia = public.today_br()`);
+  await idDe(as(A, insLance(A, B, 'almoco')));
+  await idDe(as(A, insLance(A, B, 'agua')));
+  await expect(as(A, insLance(A, B, 'jantar'))).rejects.toThrow(/row-level security/);
+  await expect(as(A, insLance(A, B, 'atividade'))).rejects.toThrow(/row-level security/);
+  await expect(as(A, insLance(A, B, 'lanche'))).rejects.toThrow(); // lanche não vale ponto
+});
+
+test('VAR: ninguém contesta a si mesmo nem abre em nome do outro', async () => {
+  await expect(as(A, insLance(A, A, 'cafe'))).rejects.toThrow();
+  await expect(as(A, insLance(B, A, 'cafe'))).rejects.toThrow(/row-level security/);
+});
+
+test('VAR: não abre no futuro nem com motivo curto', async () => {
+  await expect(as(A, insLance(A, B, 'cafe', 'public.today_br() + 1'))).rejects.toThrow(/row-level security/);
+  await expect(as(A, insLance(A, B, 'cafe', 'public.today_br()', 'oi'))).rejects.toThrow(/check/);
+});
+
+test('VAR: um lance aberto por ponto', async () => {
+  await expect(as(A, insLance(A, B, 'almoco'))).rejects.toThrow(/duplicate|unique/);
+});
+
+test('VAR: só o contestado aceita, só quem abriu retira, e só o status muda', async () => {
+  const id = await idDe(as(A, `select id from var_lances where ponto = 'almoco'`));
+  await expect(as(A, `update var_lances set status = 'aceito' where id = ${id}`)).rejects.toThrow(/row-level security/);
+  await expect(as(B, `update var_lances set status = 'retirado' where id = ${id}`)).rejects.toThrow(/row-level security/);
+  await expect(as(B, `update var_lances set motivo = 'mudei' where id = ${id}`)).rejects.toThrow(/permission denied/);
+  expect((await as(B, `update var_lances set status = 'aceito' where id = ${id}`)).affectedRows).toBe(1);
+  const r = await db.query<{ ok: boolean }>(`select encerrado_em is not null as ok from var_lances where id = ${id}`);
+  expect(r.rows[0]).toEqual({ ok: true });
+  // encerrado não muda mais nem permite reabrir
+  expect((await as(A, `update var_lances set status = 'retirado' where id = ${id}`)).affectedRows).toBe(0);
+  await expect(as(A, insLance(A, B, 'almoco'))).rejects.toThrow(/duplicate|unique/);
+  await expect(as(A, `delete from var_lances where id = ${id}`)).rejects.toThrow(/permission denied/);
+});
+
+test('VAR: depois de retirado dá para abrir de novo', async () => {
+  const id = await idDe(as(A, `select id from var_lances where ponto = 'agua'`));
+  expect((await as(A, `update var_lances set status = 'retirado' where id = ${id}`)).affectedRows).toBe(1);
+  await idDe(as(A, insLance(A, B, 'agua')));
+});
+
+test('VAR: mensagens dos dois só em lance aberto', async () => {
+  const aberto = await idDe(as(A, `select id from var_lances where ponto = 'agua' and status = 'aberto'`));
+  const aceito = await idDe(as(A, `select id from var_lances where ponto = 'almoco'`));
+  const msg = (uid: string, lance: number, texto = 'bebi sim') =>
+    `insert into var_mensagens (lance_id, autor, texto) values (${lance}, '${uid}', '${texto}')`;
+  await as(B, msg(B, aberto));
+  await as(A, msg(A, aberto, 'cadê a prova?'));
+  await expect(as(B, msg(B, aceito))).rejects.toThrow(/row-level security/);
+  await expect(as(A, msg(B, aberto))).rejects.toThrow(/row-level security/);
+  await expect(as(A, `update var_mensagens set texto = 'x'`)).rejects.toThrow(/permission denied/);
+  const r = await as(A, `select count(*)::int as n from var_mensagens where lance_id = ${aberto}`);
+  expect(r.rows[0]).toEqual({ n: 2 });
+});
+
+test('VAR: anônimo não vê lances nem mensagens', async () => {
+  await db.exec(`set role anon;`);
+  try {
+    const r = await db.query(`select (select count(*) from var_lances)::int as l, (select count(*) from var_mensagens)::int as m`);
+    expect(r.rows[0]).toEqual({ l: 0, m: 0 });
+  } finally {
+    await db.exec('reset role;');
+  }
 });
