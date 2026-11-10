@@ -9,23 +9,30 @@ const ERRO = 'Não foi salvo, tente de novo';
 export function useItensDia(userId: string, dia: string) {
   const toast = useToast();
   const [itens, setItens] = useState<MealItem[]>([]);
+  // carregado só fica true depois de ler do banco; com erro, nada de lançar (evita duplicar o que não apareceu)
   const [carregado, setCarregado] = useState(false);
+  const [erro, setErro] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
   const temp = useRef(0);
 
   useEffect(() => {
     let vivo = true;
     setCarregado(false);
+    setErro(false);
     setItens([]);
     getMealItems(dia, dia, userId)
-      .then((l) => vivo && setItens(l))
-      .catch(() => {
-        /* sem itens visíveis; o resto do dia continua funcionando */
+      .then((l) => {
+        if (!vivo) return;
+        setItens(l);
+        setCarregado(true);
       })
-      .finally(() => vivo && setCarregado(true));
+      .catch(() => vivo && setErro(true));
     return () => {
       vivo = false;
     };
-  }, [userId, dia]);
+  }, [userId, dia, tentativa]);
+
+  const recarregar = useCallback(() => setTentativa((t) => t + 1), []);
 
   const adicionar = useCallback(
     async (refeicao: Refeicao, food: Food, gramas: number) => {
@@ -78,5 +85,5 @@ export function useItensDia(userId: string, dia: string) {
     [toast],
   );
 
-  return { itens, carregado, adicionar, mudarGramas, remover };
+  return { itens, carregado, erro, recarregar, adicionar, mudarGramas, remover };
 }

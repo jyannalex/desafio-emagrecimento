@@ -257,3 +257,13 @@ test('dia travado mostra os itens sem botões de alimento', async () => {
   expect(screen.queryByRole('button', { name: /Adicionar alimento/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /Arroz branco cozido,/ })).not.toBeInTheDocument();
 });
+
+test('se os alimentos do dia não carregam, avisa e não deixa lançar até carregar', async () => {
+  vi.mocked(repo.getMealItems).mockRejectedValueOnce(new Error('rede')).mockResolvedValue([item({})]);
+  renderHoje(ativo);
+  expect(await screen.findByText('Não foi possível carregar os alimentos do dia.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Adicionar alimento/ })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Carregar alimentos de novo' }));
+  expect(await screen.findByText('154 kcal hoje')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Adicionar alimento no almoço' })).toBeInTheDocument();
+});

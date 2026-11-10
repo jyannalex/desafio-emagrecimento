@@ -201,6 +201,14 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
           </button>
         </div>
       )}
+      {comida.erro && (
+        <div className="notice danger">
+          Não foi possível carregar os alimentos do dia.{' '}
+          <button className="btn" aria-label="Carregar alimentos de novo" onClick={comida.recarregar}>
+            Tentar de novo
+          </button>
+        </div>
+      )}
 
       <section className="panel">
         <div className="panel-title">
