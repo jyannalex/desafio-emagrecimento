@@ -11,7 +11,7 @@ import { useToday } from '../hooks/useToday';
 import { addDays, formatBR, formatLong, formatWeekday, isEditable } from '../lib/dates';
 import { playerColors, playerSoftVar, playerVar } from '../lib/players';
 import { ATIVIDADE_META_MIN, dayPoints, MAX_POINTS } from '../lib/scoring';
-import type { Challenge, Cor } from '../types';
+import type { Challenge, Cor, MealItem } from '../types';
 
 type MealKey = 'cafe' | 'almoco' | 'lanche' | 'jantar';
 type NoteKey = 'nota_cafe' | 'nota_almoco' | 'nota_lanche' | 'nota_jantar';
@@ -90,6 +90,35 @@ export default function Hoje() {
       )}
       {perfil && challenge && <Dia key={dia} userId={userId} dia={dia} today={today} meta={perfil.meta} challenge={challenge} />}
     </main>
+  );
+}
+
+const COR_REFEICAO: Record<MealKey, string> = { cafe: 'var(--k-cafe)', almoco: 'var(--k-almoco)', lanche: 'var(--k-lanche)', jantar: 'var(--k-jantar)' };
+
+/** Total de kcal do dia e quanto veio de cada refeição (barra empilhada). */
+function ResumoKcal({ itens, hoje }: { itens: MealItem[]; hoje: boolean }) {
+  const total = somaKcal(itens);
+  const partes = MEALS.map((m) => ({ m, kcal: somaKcal(itens.filter((i) => i.refeicao === m.key)) })).filter((p) => p.kcal > 0);
+  return (
+    <div className="kcal-resumo">
+      <span className="kcal-dia">
+        {formatKcal(total)}
+        {hoje ? ' hoje' : ''}
+      </span>
+      <div className="kcal-barra" role="img" aria-label={partes.map((p) => `${p.m.label} ${formatKcal(p.kcal)}`).join(', ')}>
+        {partes.map((p) => (
+          <i key={p.m.key} style={{ flexGrow: p.kcal, background: COR_REFEICAO[p.m.key] }} />
+        ))}
+      </div>
+      <div className="kcal-legenda" aria-hidden>
+        {partes.map((p) => (
+          <span key={p.m.key}>
+            <i style={{ background: COR_REFEICAO[p.m.key] }} />
+            {p.m.label.replace(' da manhã', '')} {p.kcal}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -184,12 +213,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
           <h1>{tituloDia(dia, today)}</h1>
           <div className="date">{formatLong(dia)}</div>
           {editable && !loading && <p className="muted small" style={{ margin: '8px 0 0' }}>{resumo(pts)}</p>}
-          {comida.itens.length > 0 && (
-            <span className="kcal-dia">
-              {formatKcal(somaKcal(comida.itens))}
-              {dia === today ? ' hoje' : ''}
-            </span>
-          )}
+          {comida.itens.length > 0 && <ResumoKcal itens={comida.itens} hoje={dia === today} />}
         </div>
         <Ring pts={pts} />
       </header>
@@ -220,22 +244,29 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
         <ul className="tasks">
           {MEALS.map((m) => (
             <li className="task" key={m.key}>
-              <label className="task-main">
-                <input
-                  className="check"
-                  type="checkbox"
-                  aria-label={m.label}
-                  checked={log[m.key]}
-                  disabled={off || !comida.carregado}
-                  onChange={(e) => {
-                    const semAlimento = !comida.itens.some((i) => i.refeicao === m.key);
-                    if (e.target.checked && semAlimento) setBusca({ key: m.key, marcar: true });
-                    else update({ [m.key]: e.target.checked });
-                  }}
-                />
-                <span className="task-name">{m.label}</span>
-                {m.semPonto && <span className="tag">sem ponto</span>}
-              </label>
+              <div className="task-head">
+                <label className="task-main">
+                  <input
+                    className="check"
+                    type="checkbox"
+                    aria-label={m.label}
+                    checked={log[m.key]}
+                    disabled={off || !comida.carregado}
+                    onChange={(e) => {
+                      const semAlimento = !comida.itens.some((i) => i.refeicao === m.key);
+                      if (e.target.checked && semAlimento) setBusca({ key: m.key, marcar: true });
+                      else update({ [m.key]: e.target.checked });
+                    }}
+                  />
+                  <span className="task-name">{m.label}</span>
+                  {m.semPonto && <span className="tag">sem ponto</span>}
+                </label>
+                {(() => {
+                  const sub = somaKcal(comida.itens.filter((i) => i.refeicao === m.key));
+                  return sub > 0 ? <span className="task-kcal">{formatKcal(sub)}</span> : null;
+                })()}
+                {foto(m.key, m.foto)}
+              </div>
               <div className="task-sub">
                 <ItensRefeicao
                   userId={userId}
@@ -244,13 +275,14 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
                   podeEditar={editable && comida.carregado}
                   onAdicionar={async (food, g) => {
                     const marcar = busca?.key === m.key && busca.marcar;
-                    if ((await comida.adicionar(m.key, food, g)) && marcar) update({ [m.key]: true });
+                    const ok = await comida.adicionar(m.key, food, g);
+                    if (ok && marcar) update({ [m.key]: true });
+                    return ok;
                   }}
                   onMudar={comida.mudarQuantidade}
                   onRemover={comida.remover}
                   buscando={busca?.key === m.key}
                   onBuscando={(v) => setBusca(v ? { key: m.key, marcar: false } : null)}
-                  extra={foto(m.key, m.foto)}
                 />
               </div>
             </li>

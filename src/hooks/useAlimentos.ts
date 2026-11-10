@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { createFood, deleteFood, getFoods, recentFoodIds, updateFood, type MedidaFood } from '../data/repo';
+import { createFood, deleteFood, getFoods, recentFoods, updateFood, type MedidaFood, type Recente } from '../data/repo';
 import type { Food } from '../types';
 
 /** Catálogo de alimentos (baixado uma vez por sessão) e os usados por último pela pessoa. */
 export function useAlimentos(userId: string) {
   const [catalogo, setCatalogo] = useState<Food[] | null>(null);
-  const [recentes, setRecentes] = useState<number[]>([]);
+  const [recentes, setRecentes] = useState<Recente[]>([]);
   const [erro, setErro] = useState(false);
 
   const recarregar = useCallback(async () => {
@@ -19,7 +19,7 @@ export function useAlimentos(userId: string) {
 
   useEffect(() => {
     recarregar();
-    recentFoodIds(userId)
+    recentFoods(userId)
       .then(setRecentes)
       .catch(() => {
         /* sem recentes: a busca continua funcionando */

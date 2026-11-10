@@ -35,7 +35,7 @@ beforeEach(() => {
   vi.mocked(repo.deletePhotosUntil).mockResolvedValue(0);
   catalogo = [];
   vi.mocked(repo.getFoods).mockImplementation(async () => catalogo);
-  vi.mocked(repo.recentFoodIds).mockResolvedValue([]);
+  vi.mocked(repo.recentFoods).mockResolvedValue([]);
 });
 
 let catalogo: Food[] = [];

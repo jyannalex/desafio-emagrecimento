@@ -36,7 +36,7 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:previa');
   vi.mocked(repo.getFoods).mockResolvedValue([{ id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, kcal_unidade: null, origem: 'taco', criado_por: null }]);
   vi.mocked(repo.getMealItems).mockResolvedValue([]);
-  vi.mocked(repo.recentFoodIds).mockResolvedValue([]);
+  vi.mocked(repo.recentFoods).mockResolvedValue([]);
   vi.mocked(repo.addMealItem).mockImplementation(async (i) => ({ ...i, id: 77 }));
 });
 
@@ -240,7 +240,7 @@ test('adicionar alimento no almoço atualiza o total do dia', async () => {
   renderHoje(ativo);
   const add = await screen.findByRole('button', { name: 'Adicionar alimento no almoço' });
   await userEvent.click(add);
-  const dlg = screen.getByRole('dialog', { name: 'Adicionar alimento' });
+  const dlg = screen.getByRole('dialog', { name: 'Adicionar ao almoço' });
   await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
   await userEvent.click(await within(dlg).findByRole('button', { name: /Arroz branco cozido/ }));
   await userEvent.type(within(dlg).getByLabelText('Gramas'), '120');
@@ -280,7 +280,7 @@ test('marcar refeição sem alimento abre a busca e só marca depois de adiciona
   const almoco = await screen.findByLabelText('Almoço');
   await waitFor(() => expect(almoco).not.toBeDisabled());
   await userEvent.click(almoco);
-  const dlg = screen.getByRole('dialog', { name: 'Adicionar alimento' });
+  const dlg = screen.getByRole('dialog', { name: 'Adicionar ao almoço' });
   expect(almoco).not.toBeChecked();
   await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
   await userEvent.click(await within(dlg).findByRole('button', { name: /Arroz branco cozido/ }));
@@ -304,7 +304,7 @@ test('fechar a busca sem adicionar deixa a refeição desmarcada', async () => {
 test('adicionar pelo + Alimento não marca a refeição sozinho', async () => {
   renderHoje(ativo);
   await userEvent.click(await screen.findByRole('button', { name: 'Adicionar alimento no almoço' }));
-  const dlg = screen.getByRole('dialog', { name: 'Adicionar alimento' });
+  const dlg = screen.getByRole('dialog', { name: 'Adicionar ao almoço' });
   await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
   await userEvent.click(await within(dlg).findByRole('button', { name: /Arroz branco cozido/ }));
   await userEvent.type(within(dlg).getByLabelText('Gramas'), '120');
@@ -319,11 +319,23 @@ test('se o alimento não salvar, a refeição não é marcada', async () => {
   const almoco = await screen.findByLabelText('Almoço');
   await waitFor(() => expect(almoco).not.toBeDisabled());
   await userEvent.click(almoco);
-  const dlg = screen.getByRole('dialog', { name: 'Adicionar alimento' });
+  const dlg = screen.getByRole('dialog', { name: 'Adicionar ao almoço' });
   await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'arroz');
   await userEvent.click(await within(dlg).findByRole('button', { name: /Arroz branco cozido/ }));
   await userEvent.type(within(dlg).getByLabelText('Gramas'), '120');
   await userEvent.click(within(dlg).getByRole('button', { name: 'Adicionar' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Não foi salvo, tente de novo');
   expect(almoco).not.toBeChecked();
+});
+
+test('resumo do dia mostra quanto veio de cada refeição, e o subtotal fica na linha da refeição', async () => {
+  vi.mocked(repo.getMealItems).mockResolvedValue([
+    item({ refeicao: 'cafe', nome: 'Pão francês', kcal_100g: 300, gramas: 50 }),
+    item({ id: 2, refeicao: 'lanche', nome: 'Coxinha', kcal_100g: null, gramas: null, unidades: 2, kcal_unidade: 250 }),
+  ]);
+  renderHoje(ativo);
+  expect(await screen.findByRole('img', { name: 'Café da manhã 150 kcal, Lanche 500 kcal' })).toBeInTheDocument();
+  const lanche = screen.getByLabelText('Lanche').closest('li')!;
+  const cabeca = lanche.querySelector('.task-head')!;
+  expect(within(cabeca as HTMLElement).getByText('500 kcal')).toBeInTheDocument();
 });

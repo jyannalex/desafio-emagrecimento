@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useAlimentos } from '../hooks/useAlimentos';
 import type { MedidaFood } from '../data/repo';
 import {
@@ -14,39 +14,45 @@ import {
   lerNumero,
   lerUnidades,
   qtdTexto,
-  somaKcal,
 } from '../lib/calorias';
 import type { Food, MealItem } from '../types';
 import { useToast } from './Toast';
 
 const paraCampo = (n: number) => String(n).replace('.', ',');
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const porUnidade = (f: Pick<Food, 'kcal_unidade'>) => f.kcal_unidade != null;
+/** kcal de uma quantidade (g ou un) de um alimento. */
+const kcalDe = (f: Pick<Food, 'kcal_100g' | 'kcal_unidade'>, q: number) =>
+  porUnidade(f) ? Math.round(q * (f.kcal_unidade ?? 0)) : kcalItem(q, f.kcal_100g ?? 0);
+const lerQtd = (f: Pick<Food, 'kcal_unidade'>, s: string) => (porUnidade(f) ? lerUnidades(s) : lerGramas(s));
 
-/** Janela por cima da tela. Fecha no X, no Esc ou tocando fora. */
-export function Folha({ titulo, onClose, children }: { titulo: string; onClose: () => void; children: ReactNode }) {
+/** Janela que sobe de baixo (no celular) ou fica no centro. Fecha no X, no Esc ou tocando fora. */
+export function Folha({ titulo, onClose, children, rodape }: { titulo: string; onClose: () => void; children: ReactNode; rodape?: ReactNode }) {
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', esc);
     return () => document.removeEventListener('keydown', esc);
   }, [onClose]);
   return (
-    <div className="viewer" role="dialog" aria-modal="true" aria-label={titulo} onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="viewer sheet-wrap" role="dialog" aria-modal="true" aria-label={titulo} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="viewer-box folha">
+        <div className="sheet-grip" aria-hidden />
         <div className="viewer-head">
-          <strong>{titulo}</strong>
+          <strong className="sheet-title">{titulo}</strong>
           <button type="button" className="icon-btn" aria-label="Fechar" onClick={onClose}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
         </div>
-        {children}
+        <div className="sheet-body">{children}</div>
+        {rodape && <div className="sheet-foot">{rodape}</div>}
       </div>
     </div>
   );
 }
 
-/** Lista do que foi comido numa refeição, com subtotal e o botão para adicionar. */
+/** O que foi comido numa refeição e a linha para adicionar mais. */
 export function ItensRefeicao({
   userId,
   rotulo,
@@ -57,26 +63,24 @@ export function ItensRefeicao({
   onRemover,
   buscando: buscandoFora,
   onBuscando,
-  extra,
 }: {
   userId: string;
   rotulo: string;
   itens: MealItem[];
   podeEditar: boolean;
-  onAdicionar: (food: Food, qtd: number) => void;
+  /** Devolve false se não salvou (aí não conta como adicionado). */
+  onAdicionar: (food: Food, qtd: number) => Promise<boolean> | boolean | void;
   onMudar: (id: number, qtd: number) => void;
   onRemover: (id: number) => void;
   /** Para abrir a busca de fora (ex.: ao marcar a refeição). Sem isso, controla sozinho. */
   buscando?: boolean;
   onBuscando?: (v: boolean) => void;
-  /** Fica no rodapé, à direita (ex.: a foto da refeição). */
-  extra?: ReactNode;
 }) {
   const [buscandoDentro, setBuscandoDentro] = useState(false);
   const buscando = buscandoFora ?? buscandoDentro;
   const setBuscando = onBuscando ?? setBuscandoDentro;
   const [editando, setEditando] = useState<MealItem | null>(null);
-  if (!itens.length && !podeEditar && !extra) return null;
+  if (!itens.length && !podeEditar) return null;
 
   return (
     <div className="itens">
@@ -105,89 +109,125 @@ export function ItensRefeicao({
           })}
         </ul>
       )}
-      <div className="itens-pe">
-        {podeEditar ? (
-          <button type="button" className="btn ghost small" aria-label={`Adicionar alimento no ${rotulo}`} onClick={() => setBuscando(true)}>
-            + Alimento
-          </button>
-        ) : (
-          <span />
-        )}
-        <span className="itens-dir">
-          {itens.length > 0 && <span className="itens-total">{formatKcal(somaKcal(itens))}</span>}
-          {extra}
-        </span>
-      </div>
-
-      {buscando && (
-        <BuscaAlimento
-          userId={userId}
-          onFechar={() => setBuscando(false)}
-          onEscolher={(food, g) => {
-            setBuscando(false);
-            onAdicionar(food, g);
-          }}
-        />
+      {podeEditar && (
+        <button type="button" className="add-row" aria-label={`Adicionar alimento no ${rotulo}`} onClick={() => setBuscando(true)}>
+          <span className="add-plus" aria-hidden>
+            +
+          </span>
+          Adicionar alimento
+        </button>
       )}
+
+      {buscando && <BuscaAlimento userId={userId} titulo={`Adicionar ao ${rotulo}`} onFechar={() => setBuscando(false)} onAdicionar={onAdicionar} />}
       {editando && (
-        <EditarItem
-          item={editando}
-          onFechar={() => setEditando(null)}
-          onSalvar={(g) => {
-            setEditando(null);
-            onMudar(editando.id, g);
-          }}
-          onRemover={() => {
-            setEditando(null);
-            onRemover(editando.id);
-          }}
-        />
+        <Folha titulo={editando.nome} onClose={() => setEditando(null)}>
+          <EditorQtd
+            food={editando}
+            inicial={paraCampo(editando.unidades ?? editando.gramas ?? 0)}
+            acao="Salvar"
+            onConfirmar={(q) => {
+              setEditando(null);
+              onMudar(editando.id, q);
+            }}
+            extra={
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() => {
+                  setEditando(null);
+                  onRemover(editando.id);
+                }}
+              >
+                Remover
+              </button>
+            }
+          />
+        </Folha>
       )}
     </div>
   );
 }
 
-type Etapa = { tipo: 'busca' } | { tipo: 'gramas'; food: Food } | { tipo: 'cadastro'; nome: string };
-
-/** Buscar no catálogo → digitar gramas → adicionar. Sem o alimento, cadastra ali mesmo. */
-export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string; onEscolher: (food: Food, gramas: number) => void; onFechar: () => void }) {
+/**
+ * Buscar e lançar vários alimentos sem fechar: tocar num resultado abre a quantidade ali mesmo.
+ * Sem texto, "Repetir" lança com a última quantidade usada. Sem resultado, cadastra ali mesmo.
+ */
+export function BuscaAlimento({
+  userId,
+  titulo,
+  onAdicionar,
+  onFechar,
+}: {
+  userId: string;
+  titulo: string;
+  onAdicionar: (food: Food, qtd: number) => Promise<boolean> | boolean | void;
+  onFechar: () => void;
+}) {
   const al = useAlimentos(userId);
   const toast = useToast();
+  const busca = useRef<HTMLInputElement>(null);
   const [termo, setTermo] = useState('');
-  const [etapa, setEtapa] = useState<Etapa>({ tipo: 'busca' });
-  const salvarNovo = async (nome: string, medida: MedidaFood) => {
+  const [foco, setFoco] = useState<Food | null>(null);
+  const [cadastrando, setCadastrando] = useState(false);
+  const [adicionados, setAdicionados] = useState<number[]>([]);
+  const vazio = !termo.trim();
+  const achados = useMemo(
+    () => (al.catalogo && !vazio ? buscarAlimentos(al.catalogo, termo, al.recentes.map((r) => r.food_id)) : []),
+    [al.catalogo, al.recentes, termo, vazio],
+  );
+  const repetir = useMemo(() => {
+    const porId = new Map((al.catalogo ?? []).map((f) => [f.id, f]));
+    return al.recentes
+      .map((r) => ({ food: porId.get(r.food_id), qtd: r.qtd }))
+      .filter((r): r is { food: Food; qtd: number } => !!r.food && lerQtd(r.food, paraCampo(r.qtd)) !== null);
+  }, [al.catalogo, al.recentes]);
+
+  async function adicionar(food: Food, q: number) {
+    const ok = await onAdicionar(food, q);
+    if (ok === false) return;
+    setAdicionados((l) => [...l, kcalDe(food, q)]);
+    setTermo('');
+    setFoco(null);
+    setCadastrando(false);
+    busca.current?.focus();
+  }
+
+  async function salvarNovo(nome: string, medida: MedidaFood) {
     try {
       const novo = await al.cadastrar(nome, medida);
-      setEtapa({ tipo: 'gramas', food: novo });
+      setCadastrando(false);
+      setFoco(novo);
     } catch {
       toast('Não foi salvo, tente de novo');
     }
-  };
-  const achados = useMemo(() => (al.catalogo ? buscarAlimentos(al.catalogo, termo, al.recentes) : []), [al.catalogo, al.recentes, termo]);
+  }
+
+  const editor = (food: Food) => <EditorQtd key={food.id} food={food} acao="Adicionar" compacto onConfirmar={(q) => adicionar(food, q)} />;
+  const linha = (food: Food) => (
+    <li key={food.id} className={foco?.id === food.id ? 'aberto' : undefined}>
+      <button type="button" className="busca-item" aria-expanded={foco?.id === food.id} onClick={() => setFoco(foco?.id === food.id ? null : food)}>
+        <span>{food.nome}</span>
+        <span className="muted small">{kcalTexto(food)}</span>
+      </button>
+      {foco?.id === food.id && editor(food)}
+    </li>
+  );
+
+  const total = adicionados.reduce((a, b) => a + b, 0);
+  const rodape =
+    adicionados.length > 0 ? (
+      <>
+        <span role="status" className="sheet-resumo">
+          {adicionados.length === 1 ? '1 item' : `${adicionados.length} itens`} · {formatKcal(total)}
+        </span>
+        <button type="button" className="btn primary" onClick={onFechar}>
+          Concluir
+        </button>
+      </>
+    ) : null;
 
   let corpo: ReactNode;
-  if (etapa.tipo === 'gramas') {
-    corpo = (
-      <CampoQtd
-        food={etapa.food}
-        acao="Adicionar"
-        onConfirmar={(g) => onEscolher(etapa.food, g)}
-        extra={
-          <button type="button" className="btn ghost" onClick={() => setEtapa({ tipo: 'busca' })}>
-            Voltar
-          </button>
-        }
-      />
-    );
-  } else if (etapa.tipo === 'cadastro') {
-    corpo = (
-      <FormAlimento
-        inicial={{ nome: etapa.nome }}
-        onCancelar={() => setEtapa({ tipo: 'busca' })}
-        onSalvar={salvarNovo}
-      />
-    );
-  } else if (al.erro) {
+  if (al.erro) {
     corpo = (
       <div className="notice danger">
         Não foi possível carregar os alimentos{' '}
@@ -197,44 +237,89 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
       </div>
     );
   } else {
-    const vazio = !termo.trim();
+    const pinado = foco && !achados.some((f) => f.id === foco.id) && !repetir.some((r) => r.food.id === foco.id && vazio);
     corpo = (
       <>
-        <input
-          className="input"
-          type="search"
-          aria-label="Buscar alimento"
-          placeholder="Buscar alimento (ex.: arroz, frango)"
-          value={termo}
-          autoFocus
-          onChange={(e) => setTermo(e.target.value)}
-        />
+        <div className="busca-campo">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="M16 16l4.5 4.5" />
+          </svg>
+          <input
+            ref={busca}
+            className="input"
+            type="search"
+            aria-label="Buscar alimento"
+            placeholder="Buscar alimento (ex.: arroz, frango)"
+            value={termo}
+            autoFocus
+            onChange={(e) => {
+              setTermo(e.target.value);
+              setFoco(null);
+              setCadastrando(false);
+            }}
+          />
+        </div>
         {!al.catalogo ? (
           <p className="muted small">Carregando os alimentos…</p>
         ) : (
           <>
-            {vazio && <p className="muted small busca-titulo">{achados.length ? 'Usados recentemente' : 'Digite para buscar'}</p>}
-            {!vazio && achados.length > 0 && (
-              <button type="button" className="btn ghost small busca-atalho" onClick={() => setEtapa({ tipo: 'cadastro', nome: maiuscula(termo.trim()) })}>
-                Não achou? Cadastrar "{termo.trim()}"
-              </button>
-            )}
-            {!vazio && !achados.length && (
+            {pinado && foco && <ul className="busca-lista">{linha(foco)}</ul>}
+            {vazio && !pinado && (
               <>
-                <p className="small busca-titulo">Nenhum alimento com esse nome. Cadastre aqui:</p>
-                <FormAlimento key={termo.trim()} inicial={{ nome: maiuscula(termo.trim()) }} onSalvar={salvarNovo} />
+                {repetir.length > 0 ? (
+                  <>
+                    <p className="busca-titulo">Repetir</p>
+                    <ul className="busca-lista">
+                      {repetir.map(({ food, qtd }) => (
+                        <li key={food.id}>
+                          <button
+                            type="button"
+                            className="busca-item repetir"
+                            aria-label={`Repetir ${food.nome}, ${qtdTexto(porUnidade(food) ? { gramas: null, kcal_100g: null, unidades: qtd, kcal_unidade: food.kcal_unidade } : { gramas: qtd, kcal_100g: food.kcal_100g, unidades: null, kcal_unidade: null })}`}
+                            onClick={() => adicionar(food, qtd)}
+                          >
+                            <span>
+                              {food.nome}
+                              <span className="muted small"> · {porUnidade(food) ? `${paraCampo(qtd)} un` : `${paraCampo(qtd)} g`}</span>
+                            </span>
+                            <span className="repetir-kcal">
+                              {formatKcal(kcalDe(food, qtd))}
+                              <span className="add-plus" aria-hidden>
+                                +
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="muted small busca-titulo">Digite para buscar. Os que você usar aparecem aqui para repetir com um toque.</p>
+                )}
               </>
             )}
-            <ul className="busca-lista">
-              {achados.map((f) => (
-                <li key={f.id}>
-                  <button type="button" className="busca-item" onClick={() => setEtapa({ tipo: 'gramas', food: f })}>
-                    <span>{f.nome}</span>
-                    <span className="muted small">{kcalTexto(f)}</span>
+            {!vazio && !foco && (cadastrando || achados.length === 0) && (
+              <div className="cad-box">
+                {achados.length === 0 && <p className="small busca-titulo">Nenhum alimento com esse nome. Cadastre aqui:</p>}
+                <FormAlimento
+                  key={termo.trim()}
+                  inicial={{ nome: maiuscula(termo.trim()) }}
+                  onSalvar={salvarNovo}
+                  onCancelar={achados.length ? () => setCadastrando(false) : undefined}
+                />
+              </div>
+            )}
+            {!vazio && achados.length > 0 && !cadastrando && (
+              <>
+                {!foco && (
+                  <button type="button" className="btn ghost small busca-atalho" onClick={() => setCadastrando(true)}>
+                    Não achou? Cadastrar "{termo.trim()}"
                   </button>
-                </li>
-              ))}
-            </ul>
+                )}
+                <ul className="busca-lista">{achados.map(linha)}</ul>
+              </>
+            )}
           </>
         )}
       </>
@@ -242,87 +327,90 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
   }
 
   return (
-    <Folha titulo="Adicionar alimento" onClose={onFechar}>
+    <Folha titulo={titulo} onClose={onFechar} rodape={rodape}>
       {corpo}
     </Folha>
   );
 }
 
-/** Nome do alimento, campo de gramas (ou unidades) e as kcal ao vivo. */
-function CampoQtd({
+/** Quantidade de um alimento: atalhos, botões − e +, campo e as kcal ao vivo. */
+function EditorQtd({
   food,
   inicial = '',
   acao,
   onConfirmar,
   extra,
+  compacto,
 }: {
   food: Pick<Food, 'nome' | 'kcal_100g' | 'kcal_unidade'>;
   inicial?: string;
   acao: string;
   onConfirmar: (q: number) => void;
   extra?: ReactNode;
+  /** Dentro da lista da busca: sem repetir o nome do alimento. */
+  compacto?: boolean;
 }) {
   const [txt, setTxt] = useState(inicial);
-  const porUnidade = food.kcal_unidade != null;
-  const q = porUnidade ? lerUnidades(txt) : lerGramas(txt);
-  const kcal = q ? (porUnidade ? Math.round(q * (food.kcal_unidade ?? 0)) : kcalItem(q, food.kcal_100g ?? 0)) : null;
+  const un = porUnidade(food);
+  const q = lerQtd(food, txt);
+  const passo = un ? 0.5 : 10;
+  const atalhos = un ? [0.5, 1, 2, 3] : [50, 100, 150, 200];
+  const sufixo = un ? 'un' : 'g';
+  const atual = lerNumero(txt) ?? 0;
+  const mudar = (d: number) => setTxt(paraCampo(Math.max(passo, Math.round((atual + d) * 10) / 10)));
+
   return (
     <form
-      className="campo-gramas"
+      className={`qtd${compacto ? ' compacto' : ''}`}
       onSubmit={(e) => {
         e.preventDefault();
         if (q) onConfirmar(q);
       }}
     >
-      <p className="gramas-alimento">
-        <strong>{food.nome}</strong>
-        <span className="muted small">
-          {porUnidade ? `${formatKcal(food.kcal_unidade ?? 0)} por unidade` : `${formatKcal(food.kcal_100g ?? 0)} em 100 g`}
-        </span>
-      </p>
-      <label className="gramas-linha">
-        <input
-          className="input"
-          aria-label={porUnidade ? 'Unidades' : 'Gramas'}
-          inputMode="decimal"
-          autoFocus
-          value={txt}
-          onChange={(e) => setTxt(e.target.value)}
-          placeholder="0"
-        />
-        <span>{porUnidade ? 'un' : 'g'}</span>
-        <span className="gramas-kcal">{kcal !== null ? `= ${formatKcal(kcal)}` : ''}</span>
-      </label>
-      {txt.trim() && !q && (
-        <p className="muted small">
-          {porUnidade ? 'Digite até 100 unidades, com no máximo 1 casa decimal (ex.: 0,5)' : 'Digite um peso até 5.000 g, com no máximo 1 casa decimal'}
+      {!compacto && (
+        <p className="gramas-alimento">
+          <strong>{food.nome}</strong>
+          <span className="muted small">{un ? `${formatKcal(food.kcal_unidade ?? 0)} por unidade` : `${formatKcal(food.kcal_100g ?? 0)} em 100 g`}</span>
         </p>
       )}
-      <div className="viewer-actions">
+      <div className="qtd-atalhos">
+        {atalhos.map((a) => (
+          <button key={a} type="button" className={`chip${q === a ? ' on' : ''}`} aria-label={`${paraCampo(a)} ${sufixo}`} onClick={() => setTxt(paraCampo(a))}>
+            {a === 0.5 ? '½' : paraCampo(a)} {sufixo}
+          </button>
+        ))}
+      </div>
+      <div className="qtd-linha">
+        <button type="button" className="stepper" aria-label={`Menos ${paraCampo(passo)} ${sufixo}`} onClick={() => mudar(-passo)}>
+          −
+        </button>
+        <label className="qtd-campo">
+          <input
+            className="input"
+            aria-label={un ? 'Unidades' : 'Gramas'}
+            inputMode="decimal"
+            autoFocus
+            value={txt}
+            onChange={(e) => setTxt(e.target.value)}
+            placeholder="0"
+          />
+          <span>{sufixo}</span>
+        </label>
+        <button type="button" className="stepper" aria-label={`Mais ${paraCampo(passo)} ${sufixo}`} onClick={() => mudar(passo)}>
+          +
+        </button>
+        <span className="gramas-kcal">{q ? `= ${formatKcal(kcalDe(food, q))}` : ''}</span>
+      </div>
+      {txt.trim() && !q && (
+        <p className="muted small">{un ? 'Até 100 unidades, com no máximo 1 casa decimal (ex.: 0,5)' : 'Até 5.000 g, com no máximo 1 casa decimal'}</p>
+      )}
+      <div className={extra ? 'viewer-actions' : 'qtd-acao'}>
         {extra}
         <button type="submit" className="btn primary" disabled={!q}>
           {acao}
         </button>
       </div>
     </form>
-  );
-}
-
-export function EditarItem({ item, onSalvar, onRemover, onFechar }: { item: MealItem; onSalvar: (q: number) => void; onRemover: () => void; onFechar: () => void }) {
-  return (
-    <Folha titulo={item.nome} onClose={onFechar}>
-      <CampoQtd
-        food={item}
-        inicial={paraCampo(item.unidades ?? item.gramas ?? 0)}
-        acao="Salvar"
-        onConfirmar={onSalvar}
-        extra={
-          <button type="button" className="btn danger" onClick={onRemover}>
-            Remover
-          </button>
-        }
-      />
-    </Folha>
   );
 }
 
@@ -366,10 +454,6 @@ export function FormAlimento({
         }
       }}
     >
-      <label className="field">
-        <span>Nome</span>
-        <input className="input" aria-label="Nome" value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
-      </label>
       <div className="seg full" role="group" aria-label="Como medir">
         <button type="button" aria-pressed={tipo === 'g'} onClick={() => setTipo('g')}>
           Por grama
@@ -378,9 +462,12 @@ export function FormAlimento({
           Por unidade
         </button>
       </div>
+      <label className="field">
+        <span>Nome</span>
+        <input className="input" aria-label="Nome" value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
+      </label>
       {tipo === 'g' ? (
         <>
-          <p className="muted small">Copie da embalagem: as calorias e a porção em gramas.</p>
           <div className="form-alimento-linha">
             <label className="field">
               <span>Calorias (kcal)</span>
@@ -391,20 +478,30 @@ export function FormAlimento({
               <input className="input" aria-label="Em quantos gramas" inputMode="decimal" value={gramas} onChange={(e) => setGramas(e.target.value)} />
             </label>
           </div>
-          {por100 !== null &&
-            (kcalOk ? <p className="small">= {formatKcal(por100)} em 100 g</p> : <p className="small danger-text">Passa de 900 kcal em 100 g, confira os números</p>)}
+          {por100 !== null ? (
+            kcalOk ? (
+              <p className="small form-dica">= {formatKcal(por100)} em 100 g</p>
+            ) : (
+              <p className="small danger-text">Passa de 900 kcal em 100 g, confira os números</p>
+            )
+          ) : (
+            <p className="muted small form-dica">Copie da embalagem: as calorias e a porção em gramas.</p>
+          )}
         </>
       ) : (
         <>
-          <p className="muted small">Para o que se conta por unidade: uma coxinha, uma fatia, um bombom.</p>
           <label className="field">
             <span>Calorias de 1 unidade (kcal)</span>
             <input className="input" aria-label="Calorias de 1 unidade (kcal)" inputMode="decimal" value={kcal} onChange={(e) => setKcal(e.target.value)} />
           </label>
-          {k !== null && !kcalOk && <p className="small danger-text">Passa de 5.000 kcal numa unidade, confira o número</p>}
+          {k !== null && !kcalOk ? (
+            <p className="small danger-text">Passa de 5.000 kcal numa unidade, confira o número</p>
+          ) : (
+            <p className="muted small form-dica">Para o que se conta por unidade: uma coxinha, uma fatia, um bombom.</p>
+          )}
         </>
       )}
-      <div className="viewer-actions">
+      <div className={onCancelar ? 'viewer-actions' : 'qtd-acao'}>
         {onCancelar && (
           <button type="button" className="btn ghost" onClick={onCancelar}>
             Cancelar

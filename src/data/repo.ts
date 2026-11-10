@@ -222,16 +222,23 @@ export async function deleteMealItem(id: number): Promise<void> {
   check(await db().from('meal_items').delete().eq('id', id));
 }
 
-/** Alimentos que a pessoa usou por último (mais recente primeiro), sem repetir, até 8. */
-export async function recentFoodIds(userId: string): Promise<number[]> {
+export type Recente = { food_id: number; qtd: number };
+
+/** Alimentos que a pessoa usou por último (mais recente primeiro), sem repetir, até 8, com a última quantidade (g ou un). */
+export async function recentFoods(userId: string): Promise<Recente[]> {
   const rows = (check(
     await db()
       .from('meal_items')
-      .select('food_id')
+      .select('food_id, gramas, unidades')
       .eq('user_id', userId)
       .not('food_id', 'is', null)
       .order('created_at', { ascending: false })
       .limit(200),
-  ) ?? []) as { food_id: number }[];
-  return [...new Set(rows.map((r) => r.food_id))].slice(0, 8);
+  ) ?? []) as { food_id: number; gramas: unknown; unidades: unknown }[];
+  const vistos = new Map<number, number>();
+  for (const r of rows) {
+    if (!vistos.has(r.food_id)) vistos.set(r.food_id, Number(r.unidades ?? r.gramas));
+    if (vistos.size === 8) break;
+  }
+  return [...vistos].map(([food_id, qtd]) => ({ food_id, qtd }));
 }

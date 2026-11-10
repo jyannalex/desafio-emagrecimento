@@ -6,7 +6,7 @@ import {
   getFoods,
   getMealItems,
   limparCacheFoods,
-  recentFoodIds,
+  recentFoods,
   updateFood,
   updateMealItemQuantidade,
 } from './repo';
@@ -122,12 +122,17 @@ test('itens: lê por período (e pessoa), grava, muda gramas e apaga', async () 
   expect(log[3]).toBe('meal_items.delete().eq("id",9)');
 });
 
-test('recentes: últimos alimentos da pessoa sem repetir, até 8', async () => {
+test('recentes: últimos alimentos da pessoa sem repetir, até 8, com a última quantidade', async () => {
   const ids = [5, 3, 5, 7, 3, 1, 2, 4, 6, 8, 9, 10];
-  filas.meal_items = [{ data: ids.map((food_id) => ({ food_id })), error: null }];
-  expect(await recentFoodIds('u1')).toEqual([5, 3, 7, 1, 2, 4, 6, 8]);
+  filas.meal_items = [
+    { data: ids.map((food_id, i) => (food_id === 7 ? { food_id, gramas: null, unidades: '2.0' } : { food_id, gramas: String(100 + i), unidades: null })), error: null },
+  ];
+  const r = await recentFoods('u1');
+  expect(r.map((x) => x.food_id)).toEqual([5, 3, 7, 1, 2, 4, 6, 8]);
+  expect(r[0]).toEqual({ food_id: 5, qtd: 100 }); // a mais recente, não a de depois
+  expect(r[2]).toEqual({ food_id: 7, qtd: 2 });
   expect(log[0]).toBe(
-    'meal_items.select("food_id").eq("user_id","u1").not("food_id","is",null).order("created_at",{"ascending":false}).limit(200)',
+    'meal_items.select("food_id, gramas, unidades").eq("user_id","u1").not("food_id","is",null).order("created_at",{"ascending":false}).limit(200)',
   );
 });
 
