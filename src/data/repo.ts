@@ -1,4 +1,4 @@
-import type { Challenge, DailyLog, Food, MealItem, Photo, Profile, Tarefa, Weight } from '../types';
+import type { Challenge, DailyLog, Food, MealItem, Photo, Ponto, Profile, Tarefa, VarLance, VarMensagem, Weight } from '../types';
 import { db } from '../lib/supabase';
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
@@ -241,4 +241,32 @@ export async function recentFoods(userId: string): Promise<Recente[]> {
     if (vistos.size === 8) break;
   }
   return [...vistos].map(([food_id, qtd]) => ({ food_id, qtd }));
+}
+
+// ---------- VAR ----------
+
+const LANCE_COLS = 'id, alvo, autor, dia, ponto, motivo, status, created_at';
+const MSG_COLS = 'id, lance_id, autor, texto, created_at';
+
+export async function getLances(): Promise<VarLance[]> {
+  return (check(await db().from('var_lances').select(LANCE_COLS).order('created_at')) ?? []) as VarLance[];
+}
+
+export async function abrirLance(l: { alvo: string; autor: string; dia: string; ponto: Ponto; motivo: string }): Promise<VarLance> {
+  return check(await db().from('var_lances').insert(l).select(LANCE_COLS).single()) as VarLance;
+}
+
+export async function getMensagens(lanceId: number): Promise<VarMensagem[]> {
+  return (check(await db().from('var_mensagens').select(MSG_COLS).eq('lance_id', lanceId).order('created_at').order('id')) ?? []) as VarMensagem[];
+}
+
+export async function enviarMensagem(m: { lance_id: number; autor: string; texto: string }): Promise<VarMensagem> {
+  return check(await db().from('var_mensagens').insert(m).select(MSG_COLS).single()) as VarMensagem;
+}
+
+/** Contestado aceita (perde o ponto) ou quem abriu retira. Só vale para lance ainda aberto. */
+export async function decidirLance(id: number, status: 'aceito' | 'retirado'): Promise<VarLance> {
+  const rows = (check(await db().from('var_lances').update({ status }).eq('id', id).eq('status', 'aberto').select(LANCE_COLS)) ?? []) as VarLance[];
+  if (!rows.length) throw new Error('Esse lance já foi decidido');
+  return rows[0];
 }
