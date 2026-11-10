@@ -2,12 +2,29 @@ import type { Food, MealItem } from '../types';
 
 export const GRAMAS_MAX = 5000;
 export const KCAL_100G_MAX = 900;
+export const KCAL_UNIDADE_MAX = 5000;
 const MAX_RESULTADOS = 30;
 
 export const kcalItem = (gramas: number, kcal100: number) => Math.round((gramas * kcal100) / 100);
 
-export const somaKcal = (itens: Pick<MealItem, 'gramas' | 'kcal_100g'>[]) =>
-  itens.reduce((t, i) => t + kcalItem(i.gramas, i.kcal_100g), 0);
+export const UNIDADES_MAX = 100;
+
+type Medida = Pick<MealItem, 'gramas' | 'kcal_100g' | 'unidades' | 'kcal_unidade'>;
+
+/** kcal do item, medido por grama ou por unidade. */
+export const kcalDoItem = (i: Medida) =>
+  i.unidades != null ? Math.round(i.unidades * (i.kcal_unidade ?? 0)) : kcalItem(i.gramas ?? 0, i.kcal_100g ?? 0);
+
+export const somaKcal = (itens: Medida[]) => itens.reduce((t, i) => t + kcalDoItem(i), 0);
+
+const num = (n: number) => n.toLocaleString('pt-BR');
+
+/** "120 g" ou "2 un". */
+export const qtdTexto = (i: Medida) => (i.unidades != null ? `${num(i.unidades)} un` : `${num(i.gramas ?? 0)} g`);
+
+/** "128 kcal/100 g" ou "250 kcal/un". */
+export const kcalTexto = (f: Pick<Food, 'kcal_100g' | 'kcal_unidade'>) =>
+  f.kcal_unidade != null ? `${num(f.kcal_unidade)} kcal/un` : `${num(f.kcal_100g ?? 0)} kcal/100 g`;
 
 /** Minúsculo, sem acento e com um espaço só entre as palavras. */
 export const normalizar = (s: string) =>
@@ -53,6 +70,12 @@ export function lerNumero(s: string): number | null {
 export function lerGramas(s: string): number | null {
   const g = lerNumero(s);
   return g !== null && g > 0 && g <= GRAMAS_MAX ? g : null;
+}
+
+/** Unidades digitadas ("2", "0,5"); null se inválido, ≤ 0 ou acima de 100. */
+export function lerUnidades(s: string): number | null {
+  const u = lerNumero(s);
+  return u !== null && u > 0 && u <= UNIDADES_MAX ? u : null;
 }
 
 /** "120 kcal em 30 g" (embalagem) → kcal em 100 g, com 1 casa decimal. */

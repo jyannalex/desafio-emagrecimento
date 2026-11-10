@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useApp } from '../data/AppContext';
 import { FotoMini } from '../components/Fotos';
 import { getLogs, getMealItems, getPhotos, getProfiles, photoUrls } from '../data/repo';
-import { formatKcal, kcalItem, somaKcal } from '../lib/calorias';
+import { formatKcal, kcalDoItem, qtdTexto, somaKcal } from '../lib/calorias';
 import { useToday } from '../hooks/useToday';
 import { addDays, formatShort, formatWeekday } from '../lib/dates';
 import { playerColors, playerSlot, playerVar } from '../lib/players';
@@ -205,7 +205,7 @@ function Detalhe({
                 .filter((i) => i.refeicao === r.key)
                 .map((i) => (
                   <span className="nota" key={i.id}>
-                    {i.nome} · {i.gramas.toLocaleString('pt-BR')} g · {formatKcal(kcalItem(i.gramas, i.kcal_100g))}
+                    {i.nome} · {qtdTexto(i)} · {formatKcal(kcalDoItem(i))}
                   </span>
                 ))}
               {foto(r.key, r.foto)}

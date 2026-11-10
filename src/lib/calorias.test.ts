@@ -1,7 +1,7 @@
 import type { Food } from '../types';
-import { buscarAlimentos, formatKcal, kcalItem, kcalPor100, lerGramas, lerNumero, normalizar, somaKcal } from './calorias';
+import { buscarAlimentos, formatKcal, kcalDoItem, kcalItem, kcalPor100, kcalTexto, lerGramas, lerNumero, lerUnidades, normalizar, qtdTexto, somaKcal } from './calorias';
 
-const f = (id: number, nome: string, kcal_100g = 100): Food => ({ id, nome, kcal_100g, origem: 'taco', criado_por: null });
+const f = (id: number, nome: string, kcal_100g = 100): Food => ({ id, nome, kcal_100g, kcal_unidade: null, origem: 'taco', criado_por: null });
 
 const CATALOGO = [
   f(1, 'Arroz branco cozido', 128),
@@ -21,8 +21,8 @@ test('kcal do item arredonda', () => {
 test('soma das kcal usa cada item já arredondado', () => {
   expect(
     somaKcal([
-      { gramas: 120, kcal_100g: 128 },
-      { gramas: 140, kcal_100g: 76 },
+      { gramas: 120, kcal_100g: 128, unidades: null, kcal_unidade: null },
+      { gramas: 140, kcal_100g: 76, unidades: null, kcal_unidade: null },
     ]),
   ).toBe(260);
   expect(somaKcal([])).toBe(0);
@@ -96,4 +96,32 @@ test('kcal digitada: aceita 0, vírgula e ponto de milhar', () => {
   expect(lerNumero('12,55')).toBeNull();
   expect(lerNumero('')).toBeNull();
   expect(lerNumero('abc')).toBeNull();
+});
+
+// ---------- por unidade ----------
+
+const g = (gramas: number, kcal_100g: number) => ({ gramas, kcal_100g, unidades: null, kcal_unidade: null });
+const un = (unidades: number, kcal_unidade: number) => ({ gramas: null, kcal_100g: null, unidades, kcal_unidade });
+
+test('kcal do item por grama ou por unidade', () => {
+  expect(kcalDoItem(g(120, 128))).toBe(154);
+  expect(kcalDoItem(un(2, 250))).toBe(500);
+  expect(kcalDoItem(un(0.5, 125))).toBe(63);
+  expect(somaKcal([g(120, 128), un(2, 250)])).toBe(654);
+});
+
+test('texto da quantidade e das calorias do alimento', () => {
+  expect(qtdTexto(g(120.5, 128))).toBe('120,5 g');
+  expect(qtdTexto(un(2, 250))).toBe('2 un');
+  expect(qtdTexto(un(0.5, 250))).toBe('0,5 un');
+  expect(kcalTexto({ kcal_100g: 128, kcal_unidade: null })).toBe('128 kcal/100 g');
+  expect(kcalTexto({ kcal_100g: null, kcal_unidade: 250 })).toBe('250 kcal/un');
+});
+
+test('unidades digitadas: até 100, 1 casa decimal', () => {
+  expect(lerUnidades('2')).toBe(2);
+  expect(lerUnidades('0,5')).toBe(0.5);
+  expect(lerUnidades('0')).toBeNull();
+  expect(lerUnidades('101')).toBeNull();
+  expect(lerUnidades('1,25')).toBeNull();
 });

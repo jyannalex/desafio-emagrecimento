@@ -17,6 +17,8 @@ Busca sem resultado já mostra o formulário de cadastro; com resultados, "Não 
 
 ## 2. Regras
 
+- **Atualizado (0008):** alimento cadastrado pode ser **por grama** (kcal em 100 g) ou **por unidade** (kcal de 1 unidade), nunca os dois. Item de alimento por unidade guarda `unidades` (0,1 a 100) + `kcal_unidade`; kcal = round(unidades × kcal_unidade). TACO continua por grama.
+
 - Quantidade sempre em **gramas**, digitada (ex.: 120). Sem medidas caseiras. Líquidos: 1 ml ≈ 1 g.
 - kcal do item = `round(gramas × kcal_100g / 100)`. Total da refeição e do dia = soma dos itens (sem arredondar de novo).
 - Refeições com itens: café, almoço, lanche e jantar (o lanche continua sem ponto, mas tem calorias normalmente).

@@ -185,11 +185,18 @@ test('outra cor igual à do outro não grava', async () => {
 // ---------- meus alimentos ----------
 
 const desafio = { id: 1 as const, nome: 'X', data_inicio: '2026-11-01', data_fim: '2026-12-31' };
-const custom = (id: number, nome: string, kcal_100g: number, criado_por: string): Food => ({ id, nome, kcal_100g, origem: 'custom', criado_por });
+const custom = (id: number, nome: string, kcal_100g: number | null, criado_por: string, kcal_unidade: number | null = null): Food => ({
+  id,
+  nome,
+  kcal_100g,
+  kcal_unidade,
+  origem: 'custom',
+  criado_por,
+});
 
 test('meus alimentos: lista só os que eu cadastrei', async () => {
   catalogo = [
-    { id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, origem: 'taco', criado_por: null },
+    { id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, kcal_unidade: null, origem: 'taco', criado_por: null },
     custom(50, 'Marmita da tia', 400, 'a'),
     custom(51, 'Bolo do Beto', 300, 'b'),
   ];
@@ -218,7 +225,7 @@ test('meus alimentos: cadastrar', async () => {
   await userEvent.type(within(dlg).getByLabelText('Nome'), 'Pão da padaria');
   await userEvent.type(within(dlg).getByLabelText('Calorias (kcal)'), '280');
   await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar alimento' }));
-  expect(repo.createFood).toHaveBeenCalledWith({ nome: 'Pão da padaria', kcal_100g: 280, criado_por: 'a' });
+  expect(repo.createFood).toHaveBeenCalledWith({ nome: 'Pão da padaria', kcal_100g: 280, kcal_unidade: null, criado_por: 'a' });
   expect(await screen.findByText('Pão da padaria')).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
@@ -226,7 +233,7 @@ test('meus alimentos: cadastrar', async () => {
 test('meus alimentos: editar', async () => {
   catalogo = [custom(50, 'Marmita da tia', 400, 'a')];
   vi.mocked(repo.updateFood).mockImplementation(async (id, x) => {
-    const f = { ...custom(id, x.nome, x.kcal_100g, 'a') };
+    const f = { ...custom(id, x.nome, x.kcal_100g, 'a', x.kcal_unidade) };
     catalogo = [f];
     return f;
   });
@@ -238,7 +245,7 @@ test('meus alimentos: editar', async () => {
   await userEvent.clear(within(dlg).getByLabelText('Calorias (kcal)'));
   await userEvent.type(within(dlg).getByLabelText('Calorias (kcal)'), '350');
   await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar alimento' }));
-  expect(repo.updateFood).toHaveBeenCalledWith(50, { nome: 'Marmita da tia', kcal_100g: 350 });
+  expect(repo.updateFood).toHaveBeenCalledWith(50, { nome: 'Marmita da tia', kcal_100g: 350, kcal_unidade: null });
   expect(await screen.findByText('350 kcal/100 g')).toBeInTheDocument();
 });
 
@@ -266,4 +273,25 @@ test('desafio: grava o prêmio', async () => {
   await waitFor(() =>
     expect(repo.saveChallenge).toHaveBeenCalledWith({ nome: 'X', data_inicio: '2026-11-01', data_fim: '2026-12-31', premio: 'Viagem para a praia' }),
   );
+});
+
+test('meus alimentos: alimento por unidade mostra kcal por unidade e edita por unidade', async () => {
+  catalogo = [custom(70, 'Coxinha', null, 'a', 250)];
+  vi.mocked(repo.updateFood).mockImplementation(async (id, x) => {
+    const f = custom(id, x.nome, x.kcal_100g, 'a', x.kcal_unidade);
+    catalogo = [f];
+    return f;
+  });
+  renderConfig(desafio);
+  expect(await screen.findByText('250 kcal/un')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Editar Coxinha' }));
+  const dlg = screen.getByRole('dialog', { name: 'Editar alimento' });
+  expect(within(dlg).getByRole('button', { name: 'Por unidade' })).toHaveAttribute('aria-pressed', 'true');
+  const kcal = within(dlg).getByLabelText('Calorias de 1 unidade (kcal)');
+  expect(kcal).toHaveValue('250');
+  await userEvent.clear(kcal);
+  await userEvent.type(kcal, '280');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar alimento' }));
+  expect(repo.updateFood).toHaveBeenCalledWith(70, { nome: 'Coxinha', kcal_100g: null, kcal_unidade: 280 });
+  expect(await screen.findByText('280 kcal/un')).toBeInTheDocument();
 });

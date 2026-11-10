@@ -93,6 +93,8 @@ const item = (user_id: string, dia: string, over: Partial<MealItem> = {}): MealI
   nome: 'Arroz branco cozido',
   kcal_100g: 128,
   gramas: 120,
+  unidades: null,
+  kcal_unidade: null,
   ...over,
 });
 
@@ -101,6 +103,7 @@ test('no detalhe do dia aparecem os alimentos e o total de cada um', async () =>
     item('a', '2026-11-06'),
     item('a', '2026-11-06', { refeicao: 'jantar', nome: 'Feijão carioca cozido', kcal_100g: 76, gramas: 140 }),
     item('b', '2026-11-06', { refeicao: 'cafe', nome: 'Pão francês', kcal_100g: 300, gramas: 50 }),
+    item('b', '2026-11-06', { refeicao: 'lanche', nome: 'Coxinha', kcal_100g: null, gramas: null, unidades: 2, kcal_unidade: 250 }),
   ]);
   renderHist('2026-11-07');
   await userEvent.click(await screen.findByRole('button', { name: /6 de novembro/ }));
@@ -112,7 +115,8 @@ test('no detalhe do dia aparecem os alimentos e o total de cada um', async () =>
   expect(within(ana).getByText('Total: 260 kcal')).toBeInTheDocument();
   // Beto não tem registro do dia, mas registrou alimento: aparece mesmo assim
   expect(within(beto).getByText('Pão francês · 50 g · 150 kcal')).toBeInTheDocument();
-  expect(within(beto).getByText('Total: 150 kcal')).toBeInTheDocument();
+  expect(within(beto).getByText('Coxinha · 2 un · 500 kcal')).toBeInTheDocument();
+  expect(within(beto).getByText('Total: 650 kcal')).toBeInTheDocument();
 });
 
 test('sem alimentos não mostra total', async () => {

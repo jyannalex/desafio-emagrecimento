@@ -32,6 +32,7 @@ beforeAll(async () => {
   await db.exec(read('../migrations/0005_alimentos.sql'));
   await db.exec(read('../migrations/0006_taco.sql'));
   await db.exec(read('../migrations/0007_premio.sql'));
+  await db.exec(read('../migrations/0008_por_unidade.sql'));
   await db.exec(`
     insert into auth.users (id, email, raw_user_meta_data) values
       ('${A}', 'ana@x.com', '{"nome":"Ana"}'), ('${B}', 'beto@x.com', '{}');
@@ -340,4 +341,33 @@ test('prêmio do desafio: grava texto de até 120 letras', async () => {
   expect(ok.affectedRows).toBe(1);
   await expect(as(A, `update challenge set premio = '${'x'.repeat(121)}' where id = 1`)).rejects.toThrow(/check/);
   await as(A, `update challenge set premio = null where id = 1`);
+});
+
+// ---------- alimento por unidade ----------
+
+test('alimento por unidade: só kcal de 1 unidade; precisa de um jeito só de medir', async () => {
+  const ok = await as(A, `insert into foods (nome, kcal_unidade, origem, criado_por) values ('Coxinha', 250, 'custom', '${A}') returning id`);
+  expect(ok.rows).toHaveLength(1);
+  await expect(as(A, `insert into foods (nome, origem, criado_por) values ('Nada', 'custom', '${A}')`)).rejects.toThrow(/check/);
+  await expect(
+    as(A, `insert into foods (nome, kcal_100g, kcal_unidade, origem, criado_por) values ('Dois', 100, 50, 'custom', '${A}')`),
+  ).rejects.toThrow(/check/);
+  await expect(as(A, `insert into foods (nome, kcal_unidade, origem, criado_por) values ('Gigante', 5001, 'custom', '${A}')`)).rejects.toThrow(/check/);
+});
+
+test('item por unidade: unidades + kcal de 1 unidade, sem gramas', async () => {
+  const ok = await as(
+    A,
+    `insert into meal_items (user_id, dia, refeicao, nome, unidades, kcal_unidade) values ('${A}', public.today_br(), 'lanche', 'Coxinha', 2, 250) returning id`,
+  );
+  expect(ok.rows).toHaveLength(1);
+  await expect(
+    as(A, `insert into meal_items (user_id, dia, refeicao, nome, gramas, kcal_100g, unidades, kcal_unidade) values ('${A}', public.today_br(), 'lanche', 'X', 10, 10, 1, 10)`),
+  ).rejects.toThrow(/check/);
+  await expect(
+    as(A, `insert into meal_items (user_id, dia, refeicao, nome, unidades) values ('${A}', public.today_br(), 'lanche', 'X', 1)`),
+  ).rejects.toThrow(/check/);
+  await expect(
+    as(A, `insert into meal_items (user_id, dia, refeicao, nome, unidades, kcal_unidade) values ('${A}', public.today_br(), 'lanche', 'X', 101, 10)`),
+  ).rejects.toThrow(/check/);
 });

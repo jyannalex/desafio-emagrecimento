@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { createFood, deleteFood, getFoods, recentFoodIds, updateFood } from '../data/repo';
-import { kcalPor100 } from '../lib/calorias';
+import { createFood, deleteFood, getFoods, recentFoodIds, updateFood, type MedidaFood } from '../data/repo';
 import type { Food } from '../types';
 
 /** Catálogo de alimentos (baixado uma vez por sessão) e os usados por último pela pessoa. */
@@ -27,18 +26,18 @@ export function useAlimentos(userId: string) {
       });
   }, [userId, recarregar]);
 
-  /** `kcal` em `gramas` (como na embalagem); grava convertido para 100 g. */
+  /** medida: por grama (kcal_100g) ou por unidade (kcal_unidade). */
   const cadastrar = useCallback(
-    async (nome: string, kcal: number, gramas: number) => {
-      const novo = await createFood({ nome, kcal_100g: kcalPor100(kcal, gramas), criado_por: userId });
+    async (nome: string, medida: MedidaFood) => {
+      const novo = await createFood({ nome, ...medida, criado_por: userId });
       setCatalogo(await getFoods());
       return novo;
     },
     [userId],
   );
 
-  const editar = useCallback(async (id: number, nome: string, kcal: number, gramas: number) => {
-    const novo = await updateFood(id, { nome, kcal_100g: kcalPor100(kcal, gramas) });
+  const editar = useCallback(async (id: number, nome: string, medida: MedidaFood) => {
+    const novo = await updateFood(id, { nome, ...medida });
     setCatalogo(await getFoods());
     return novo;
   }, []);

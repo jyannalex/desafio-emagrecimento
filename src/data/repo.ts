@@ -150,13 +150,23 @@ export async function deletePhotosUntil(userId: string, until: string): Promise<
 
 // ---------- alimentos ----------
 
-const FOOD_COLS = 'id, nome, kcal_100g, origem, criado_por';
-const ITEM_COLS = 'id, user_id, dia, refeicao, food_id, nome, kcal_100g, gramas';
+const FOOD_COLS = 'id, nome, kcal_100g, kcal_unidade, origem, criado_por';
+const ITEM_COLS = 'id, user_id, dia, refeicao, food_id, nome, kcal_100g, gramas, unidades, kcal_unidade';
 const PAGINA = 1000;
 
 /** numeric do Postgres pode vir como texto: garante número. */
-const comoFood = (f: Food): Food => ({ ...f, kcal_100g: Number(f.kcal_100g) });
-const comoItem = (i: MealItem): MealItem => ({ ...i, kcal_100g: Number(i.kcal_100g), gramas: Number(i.gramas) });
+const n = (v: unknown) => (v == null ? null : Number(v));
+const comoFood = (f: Food): Food => ({ ...f, kcal_100g: n(f.kcal_100g), kcal_unidade: n(f.kcal_unidade) });
+const comoItem = (i: MealItem): MealItem => ({
+  ...i,
+  kcal_100g: n(i.kcal_100g),
+  gramas: n(i.gramas),
+  unidades: n(i.unidades),
+  kcal_unidade: n(i.kcal_unidade),
+});
+
+/** Por grama: kcal_100g; por unidade: kcal_unidade. O outro vai null. */
+export type MedidaFood = { kcal_100g: number | null; kcal_unidade: number | null };
 
 let cacheFoods: Food[] | null = null;
 
@@ -177,13 +187,13 @@ export async function getFoods(): Promise<Food[]> {
   return todos;
 }
 
-export async function createFood(f: { nome: string; kcal_100g: number; criado_por: string }): Promise<Food> {
+export async function createFood(f: { nome: string; criado_por: string } & MedidaFood): Promise<Food> {
   const novo = comoFood(check(await db().from('foods').insert({ ...f, origem: 'custom' }).select(FOOD_COLS).single()) as Food);
   if (cacheFoods) cacheFoods = [...cacheFoods, novo];
   return novo;
 }
 
-export async function updateFood(id: number, f: { nome: string; kcal_100g: number }): Promise<Food> {
+export async function updateFood(id: number, f: { nome: string } & MedidaFood): Promise<Food> {
   const novo = comoFood(check(await db().from('foods').update(f).eq('id', id).select(FOOD_COLS).single()) as Food);
   if (cacheFoods) cacheFoods = cacheFoods.map((x) => (x.id === id ? novo : x));
   return novo;
@@ -204,8 +214,8 @@ export async function addMealItem(i: Omit<MealItem, 'id'>): Promise<MealItem> {
   return comoItem(check(await db().from('meal_items').insert(i).select(ITEM_COLS).single()) as MealItem);
 }
 
-export async function updateMealItemGramas(id: number, gramas: number): Promise<MealItem> {
-  return comoItem(check(await db().from('meal_items').update({ gramas }).eq('id', id).select(ITEM_COLS).single()) as MealItem);
+export async function updateMealItemQuantidade(id: number, q: { gramas: number } | { unidades: number }): Promise<MealItem> {
+  return comoItem(check(await db().from('meal_items').update(q).eq('id', id).select(ITEM_COLS).single()) as MealItem);
 }
 
 export async function deleteMealItem(id: number): Promise<void> {

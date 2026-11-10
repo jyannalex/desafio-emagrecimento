@@ -9,7 +9,7 @@ import { ToastProvider } from './Toast';
 vi.mock('../data/repo');
 
 const DIA = '2026-11-10';
-const f = (id: number, nome: string, kcal_100g: number): Food => ({ id, nome, kcal_100g, origem: 'taco', criado_por: null });
+const f = (id: number, nome: string, kcal_100g: number): Food => ({ id, nome, kcal_100g, kcal_unidade: null, origem: 'taco', criado_por: null });
 const CATALOGO = [f(1, 'Arroz branco cozido', 128), f(2, 'Feijão carioca cozido', 76)];
 const item = (over: Partial<MealItem> = {}): MealItem => ({
   id: 9,
@@ -20,6 +20,8 @@ const item = (over: Partial<MealItem> = {}): MealItem => ({
   nome: 'Arroz branco cozido',
   kcal_100g: 128,
   gramas: 120,
+  unidades: null,
+  kcal_unidade: null,
   ...over,
 });
 
@@ -32,7 +34,7 @@ function Almoco({ podeEditar = true }: { podeEditar?: boolean }) {
       itens={d.itens.filter((i) => i.refeicao === 'almoco')}
       podeEditar={podeEditar && d.carregado}
       onAdicionar={(food, g) => d.adicionar('almoco', food, g)}
-      onMudar={d.mudarGramas}
+      onMudar={d.mudarQuantidade}
       onRemover={d.remover}
     />
   );
@@ -50,7 +52,7 @@ beforeEach(() => {
   vi.mocked(repo.getMealItems).mockResolvedValue([]);
   vi.mocked(repo.recentFoodIds).mockResolvedValue([]);
   vi.mocked(repo.addMealItem).mockImplementation(async (i) => ({ ...i, id: 77 }));
-  vi.mocked(repo.updateMealItemGramas).mockImplementation(async (id, gramas) => item({ id, gramas }));
+  vi.mocked(repo.updateMealItemQuantidade).mockImplementation(async (id, q) => item({ id, ...q }));
   vi.mocked(repo.deleteMealItem).mockResolvedValue();
   vi.mocked(repo.createFood).mockImplementation(async (x) => ({ ...x, id: 50, origem: 'custom' }));
 });
@@ -78,9 +80,53 @@ test('busca, escolhe, digita gramas e adiciona', async () => {
     nome: 'Arroz branco cozido',
     kcal_100g: 128,
     gramas: 120,
+    unidades: null,
+    kcal_unidade: null,
   });
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Arroz branco cozido, 120 g, 154 kcal' })).toBeInTheDocument();
+});
+
+test('cadastra por unidade e lança em unidades', async () => {
+  renderAlmoco();
+  const dlg = await abrirBusca();
+  await userEvent.type(within(dlg).getByLabelText('Buscar alimento'), 'coxinha');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Por unidade' }));
+  expect(within(dlg).queryByLabelText('Em quantos gramas')).not.toBeInTheDocument();
+  await userEvent.type(within(dlg).getByLabelText('Calorias de 1 unidade (kcal)'), '250');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar alimento' }));
+  expect(repo.createFood).toHaveBeenCalledWith({ nome: 'Coxinha', kcal_100g: null, kcal_unidade: 250, criado_por: 'u1' });
+  const qtd = await within(dlg).findByLabelText('Unidades');
+  expect(within(dlg).getByText('250 kcal por unidade')).toBeInTheDocument();
+  await userEvent.type(qtd, '2');
+  expect(within(dlg).getByText('= 500 kcal')).toBeInTheDocument();
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Adicionar' }));
+  expect(repo.addMealItem).toHaveBeenCalledWith({
+    user_id: 'u1',
+    dia: DIA,
+    refeicao: 'almoco',
+    food_id: 50,
+    nome: 'Coxinha',
+    kcal_100g: null,
+    gramas: null,
+    unidades: 2,
+    kcal_unidade: 250,
+  });
+  expect(await screen.findByRole('button', { name: 'Coxinha, 2 un, 500 kcal' })).toBeInTheDocument();
+});
+
+test('editar item por unidade muda as unidades', async () => {
+  vi.mocked(repo.getMealItems).mockResolvedValue([item({ nome: 'Coxinha', kcal_100g: null, gramas: null, unidades: 2, kcal_unidade: 250 })]);
+  renderAlmoco();
+  await userEvent.click(await screen.findByRole('button', { name: 'Coxinha, 2 un, 500 kcal' }));
+  const dlg = screen.getByRole('dialog', { name: 'Coxinha' });
+  const qtd = within(dlg).getByLabelText('Unidades');
+  expect(qtd).toHaveValue('2');
+  await userEvent.clear(qtd);
+  await userEvent.type(qtd, '3');
+  await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar' }));
+  expect(repo.updateMealItemQuantidade).toHaveBeenCalledWith(9, { unidades: 3 });
+  expect(await screen.findByRole('button', { name: 'Coxinha, 3 un, 750 kcal' })).toBeInTheDocument();
 });
 
 test('sem texto mostra os usados recentemente', async () => {
@@ -118,7 +164,7 @@ test('busca sem resultado já mostra o cadastro ali mesmo e volta para as gramas
   await userEvent.type(within(dlg).getByLabelText('Em quantos gramas'), '30');
   expect(within(dlg).getByText('= 400 kcal em 100 g')).toBeInTheDocument();
   await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar alimento' }));
-  expect(repo.createFood).toHaveBeenCalledWith({ nome: 'Marmita da tia', kcal_100g: 400, criado_por: 'u1' });
+  expect(repo.createFood).toHaveBeenCalledWith({ nome: 'Marmita da tia', kcal_100g: 400, kcal_unidade: null, criado_por: 'u1' });
   expect(await within(dlg).findByLabelText('Gramas')).toBeInTheDocument();
   expect(within(dlg).getByText('Marmita da tia')).toBeInTheDocument();
 });
@@ -144,7 +190,7 @@ test('editar gramas de um item e depois remover', async () => {
   await userEvent.clear(g);
   await userEvent.type(g, '150');
   await userEvent.click(within(dlg).getByRole('button', { name: 'Salvar' }));
-  expect(repo.updateMealItemGramas).toHaveBeenCalledWith(9, 150);
+  expect(repo.updateMealItemQuantidade).toHaveBeenCalledWith(9, { gramas: 150 });
   await userEvent.click(await screen.findByRole('button', { name: 'Arroz branco cozido, 150 g, 192 kcal' }));
   await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remover' }));
   expect(repo.deleteMealItem).toHaveBeenCalledWith(9);

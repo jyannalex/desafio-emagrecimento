@@ -246,7 +246,7 @@ function Dia({ userId, dia, today, meta, challenge }: { userId: string; dia: str
                     const marcar = busca?.key === m.key && busca.marcar;
                     if ((await comida.adicionar(m.key, food, g)) && marcar) update({ [m.key]: true });
                   }}
-                  onMudar={comida.mudarGramas}
+                  onMudar={comida.mudarQuantidade}
                   onRemover={comida.remover}
                   buscando={busca?.key === m.key}
                   onBuscando={(v) => setBusca(v ? { key: m.key, marcar: false } : null)}

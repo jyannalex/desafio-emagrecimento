@@ -1,10 +1,24 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAlimentos } from '../hooks/useAlimentos';
-import { buscarAlimentos, formatKcal, kcalItem, kcalPor100, KCAL_100G_MAX, lerGramas, lerNumero, somaKcal } from '../lib/calorias';
+import type { MedidaFood } from '../data/repo';
+import {
+  buscarAlimentos,
+  formatKcal,
+  kcalDoItem,
+  kcalItem,
+  kcalPor100,
+  kcalTexto,
+  KCAL_100G_MAX,
+  KCAL_UNIDADE_MAX,
+  lerGramas,
+  lerNumero,
+  lerUnidades,
+  qtdTexto,
+  somaKcal,
+} from '../lib/calorias';
 import type { Food, MealItem } from '../types';
 import { useToast } from './Toast';
 
-const fmtG = (g: number) => `${g.toLocaleString('pt-BR')} g`;
 const paraCampo = (n: number) => String(n).replace('.', ',');
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -49,8 +63,8 @@ export function ItensRefeicao({
   rotulo: string;
   itens: MealItem[];
   podeEditar: boolean;
-  onAdicionar: (food: Food, gramas: number) => void;
-  onMudar: (id: number, gramas: number) => void;
+  onAdicionar: (food: Food, qtd: number) => void;
+  onMudar: (id: number, qtd: number) => void;
   onRemover: (id: number) => void;
   /** Para abrir a busca de fora (ex.: ao marcar a refeição). Sem isso, controla sozinho. */
   buscando?: boolean;
@@ -69,18 +83,18 @@ export function ItensRefeicao({
       {itens.length > 0 && (
         <ul className="itens-lista">
           {itens.map((i) => {
-            const kcal = formatKcal(kcalItem(i.gramas, i.kcal_100g));
+            const kcal = formatKcal(kcalDoItem(i));
             const conteudo = (
               <>
                 <span className="item-nome">{i.nome}</span>
-                <span className="item-g">{fmtG(i.gramas)}</span>
+                <span className="item-g">{qtdTexto(i)}</span>
                 <span className="item-kcal">{kcal}</span>
               </>
             );
             return (
               <li key={i.id}>
                 {podeEditar && i.id > 0 ? (
-                  <button type="button" className="item-row" aria-label={`${i.nome}, ${fmtG(i.gramas)}, ${kcal}`} onClick={() => setEditando(i)}>
+                  <button type="button" className="item-row" aria-label={`${i.nome}, ${qtdTexto(i)}, ${kcal}`} onClick={() => setEditando(i)}>
                     {conteudo}
                   </button>
                 ) : (
@@ -141,9 +155,9 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
   const toast = useToast();
   const [termo, setTermo] = useState('');
   const [etapa, setEtapa] = useState<Etapa>({ tipo: 'busca' });
-  const salvarNovo = async (nome: string, kcal: number, g: number) => {
+  const salvarNovo = async (nome: string, medida: MedidaFood) => {
     try {
-      const novo = await al.cadastrar(nome, kcal, g);
+      const novo = await al.cadastrar(nome, medida);
       setEtapa({ tipo: 'gramas', food: novo });
     } catch {
       toast('Não foi salvo, tente de novo');
@@ -154,7 +168,7 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
   let corpo: ReactNode;
   if (etapa.tipo === 'gramas') {
     corpo = (
-      <CampoGramas
+      <CampoQtd
         food={etapa.food}
         acao="Adicionar"
         onConfirmar={(g) => onEscolher(etapa.food, g)}
@@ -216,7 +230,7 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
                 <li key={f.id}>
                   <button type="button" className="busca-item" onClick={() => setEtapa({ tipo: 'gramas', food: f })}>
                     <span>{f.nome}</span>
-                    <span className="muted small">{formatKcal(f.kcal_100g)}/100 g</span>
+                    <span className="muted small">{kcalTexto(f)}</span>
                   </button>
                 </li>
               ))}
@@ -234,43 +248,59 @@ export function BuscaAlimento({ userId, onEscolher, onFechar }: { userId: string
   );
 }
 
-/** Nome do alimento, campo de gramas e as kcal ao vivo. */
-function CampoGramas({
+/** Nome do alimento, campo de gramas (ou unidades) e as kcal ao vivo. */
+function CampoQtd({
   food,
   inicial = '',
   acao,
   onConfirmar,
   extra,
 }: {
-  food: Pick<Food, 'nome' | 'kcal_100g'>;
+  food: Pick<Food, 'nome' | 'kcal_100g' | 'kcal_unidade'>;
   inicial?: string;
   acao: string;
-  onConfirmar: (g: number) => void;
+  onConfirmar: (q: number) => void;
   extra?: ReactNode;
 }) {
   const [txt, setTxt] = useState(inicial);
-  const g = lerGramas(txt);
+  const porUnidade = food.kcal_unidade != null;
+  const q = porUnidade ? lerUnidades(txt) : lerGramas(txt);
+  const kcal = q ? (porUnidade ? Math.round(q * (food.kcal_unidade ?? 0)) : kcalItem(q, food.kcal_100g ?? 0)) : null;
   return (
     <form
       className="campo-gramas"
       onSubmit={(e) => {
         e.preventDefault();
-        if (g) onConfirmar(g);
+        if (q) onConfirmar(q);
       }}
     >
       <p className="gramas-alimento">
         <strong>{food.nome}</strong>
-        <span className="muted small">{formatKcal(food.kcal_100g)} em 100 g</span>
+        <span className="muted small">
+          {porUnidade ? `${formatKcal(food.kcal_unidade ?? 0)} por unidade` : `${formatKcal(food.kcal_100g ?? 0)} em 100 g`}
+        </span>
       </p>
       <label className="gramas-linha">
-        <input className="input" aria-label="Gramas" inputMode="decimal" autoFocus value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="0" />
-        <span>g</span>
-        <span className="gramas-kcal">{g ? `= ${formatKcal(kcalItem(g, food.kcal_100g))}` : ''}</span>
+        <input
+          className="input"
+          aria-label={porUnidade ? 'Unidades' : 'Gramas'}
+          inputMode="decimal"
+          autoFocus
+          value={txt}
+          onChange={(e) => setTxt(e.target.value)}
+          placeholder="0"
+        />
+        <span>{porUnidade ? 'un' : 'g'}</span>
+        <span className="gramas-kcal">{kcal !== null ? `= ${formatKcal(kcal)}` : ''}</span>
       </label>
-      {txt.trim() && !g && <p className="muted small">Digite um peso até 5.000 g, com no máximo 1 casa decimal</p>}
+      {txt.trim() && !q && (
+        <p className="muted small">
+          {porUnidade ? 'Digite até 100 unidades, com no máximo 1 casa decimal (ex.: 0,5)' : 'Digite um peso até 5.000 g, com no máximo 1 casa decimal'}
+        </p>
+      )}
       <div className="viewer-actions">
         {extra}
-        <button type="submit" className="btn primary" disabled={!g}>
+        <button type="submit" className="btn primary" disabled={!q}>
           {acao}
         </button>
       </div>
@@ -278,12 +308,12 @@ function CampoGramas({
   );
 }
 
-export function EditarItem({ item, onSalvar, onRemover, onFechar }: { item: MealItem; onSalvar: (g: number) => void; onRemover: () => void; onFechar: () => void }) {
+export function EditarItem({ item, onSalvar, onRemover, onFechar }: { item: MealItem; onSalvar: (q: number) => void; onRemover: () => void; onFechar: () => void }) {
   return (
     <Folha titulo={item.nome} onClose={onFechar}>
-      <CampoGramas
+      <CampoQtd
         food={item}
-        inicial={paraCampo(item.gramas)}
+        inicial={paraCampo(item.unidades ?? item.gramas ?? 0)}
         acao="Salvar"
         onConfirmar={onSalvar}
         extra={
@@ -296,26 +326,30 @@ export function EditarItem({ item, onSalvar, onRemover, onFechar }: { item: Meal
   );
 }
 
-
-/** Cadastro/edição de alimento. As kcal podem vir da embalagem em qualquer porção; grava em 100 g. */
+/**
+ * Cadastro/edição de alimento, por grama ou por unidade.
+ * Por grama: kcal da embalagem em qualquer porção, grava em 100 g. Por unidade: kcal de 1 unidade.
+ */
 export function FormAlimento({
   inicial,
   onSalvar,
   onCancelar,
 }: {
-  inicial?: { nome: string; kcal_100g?: number };
-  onSalvar: (nome: string, kcal: number, gramas: number) => Promise<void> | void;
+  inicial?: { nome: string; kcal_100g?: number | null; kcal_unidade?: number | null };
+  onSalvar: (nome: string, medida: MedidaFood) => Promise<void> | void;
   onCancelar?: () => void;
 }) {
   const [nome, setNome] = useState(inicial?.nome ?? '');
-  const [kcal, setKcal] = useState(inicial?.kcal_100g !== undefined ? paraCampo(inicial.kcal_100g) : '');
+  const [tipo, setTipo] = useState<'g' | 'un'>(inicial?.kcal_unidade != null ? 'un' : 'g');
+  const kcalInicial = inicial?.kcal_unidade ?? inicial?.kcal_100g;
+  const [kcal, setKcal] = useState(kcalInicial != null ? paraCampo(kcalInicial) : '');
   const [gramas, setGramas] = useState('100');
   const [salvando, setSalvando] = useState(false);
   const k = lerNumero(kcal);
   const g = lerGramas(gramas);
-  const por100 = k !== null && g ? kcalPor100(k, g) : null;
+  const por100 = tipo === 'g' && k !== null && g ? kcalPor100(k, g) : null;
   const nomeOk = nome.trim().length >= 2 && nome.trim().length <= 80;
-  const kcalOk = por100 !== null && por100 <= KCAL_100G_MAX;
+  const kcalOk = tipo === 'g' ? por100 !== null && por100 <= KCAL_100G_MAX : k !== null && k <= KCAL_UNIDADE_MAX;
   const ok = nomeOk && kcalOk && !salvando;
 
   return (
@@ -323,10 +357,10 @@ export function FormAlimento({
       className="form-alimento"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!ok || k === null || !g) return;
+        if (!ok || k === null) return;
         setSalvando(true);
         try {
-          await onSalvar(nome.trim(), k, g);
+          await onSalvar(nome.trim(), tipo === 'g' ? { kcal_100g: por100, kcal_unidade: null } : { kcal_100g: null, kcal_unidade: k });
         } finally {
           setSalvando(false);
         }
@@ -336,18 +370,40 @@ export function FormAlimento({
         <span>Nome</span>
         <input className="input" aria-label="Nome" value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
       </label>
-      <p className="muted small">Copie da embalagem: as calorias e a porção em gramas.</p>
-      <div className="form-alimento-linha">
-        <label className="field">
-          <span>Calorias (kcal)</span>
-          <input className="input" aria-label="Calorias (kcal)" inputMode="decimal" value={kcal} onChange={(e) => setKcal(e.target.value)} />
-        </label>
-        <label className="field">
-          <span>Em quantos gramas</span>
-          <input className="input" aria-label="Em quantos gramas" inputMode="decimal" value={gramas} onChange={(e) => setGramas(e.target.value)} />
-        </label>
+      <div className="seg full" role="group" aria-label="Como medir">
+        <button type="button" aria-pressed={tipo === 'g'} onClick={() => setTipo('g')}>
+          Por grama
+        </button>
+        <button type="button" aria-pressed={tipo === 'un'} onClick={() => setTipo('un')}>
+          Por unidade
+        </button>
       </div>
-      {por100 !== null && (kcalOk ? <p className="small">= {formatKcal(por100)} em 100 g</p> : <p className="small danger-text">Passa de 900 kcal em 100 g, confira os números</p>)}
+      {tipo === 'g' ? (
+        <>
+          <p className="muted small">Copie da embalagem: as calorias e a porção em gramas.</p>
+          <div className="form-alimento-linha">
+            <label className="field">
+              <span>Calorias (kcal)</span>
+              <input className="input" aria-label="Calorias (kcal)" inputMode="decimal" value={kcal} onChange={(e) => setKcal(e.target.value)} />
+            </label>
+            <label className="field">
+              <span>Em quantos gramas</span>
+              <input className="input" aria-label="Em quantos gramas" inputMode="decimal" value={gramas} onChange={(e) => setGramas(e.target.value)} />
+            </label>
+          </div>
+          {por100 !== null &&
+            (kcalOk ? <p className="small">= {formatKcal(por100)} em 100 g</p> : <p className="small danger-text">Passa de 900 kcal em 100 g, confira os números</p>)}
+        </>
+      ) : (
+        <>
+          <p className="muted small">Para o que se conta por unidade: uma coxinha, uma fatia, um bombom.</p>
+          <label className="field">
+            <span>Calorias de 1 unidade (kcal)</span>
+            <input className="input" aria-label="Calorias de 1 unidade (kcal)" inputMode="decimal" value={kcal} onChange={(e) => setKcal(e.target.value)} />
+          </label>
+          {k !== null && !kcalOk && <p className="small danger-text">Passa de 5.000 kcal numa unidade, confira o número</p>}
+        </>
+      )}
       <div className="viewer-actions">
         {onCancelar && (
           <button type="button" className="btn ghost" onClick={onCancelar}>
@@ -399,7 +455,7 @@ export function MeusAlimentos({ userId }: { userId: string }) {
               <span className="grow">
                 <span>{f.nome}</span>
                 <br />
-                <span className="muted small">{formatKcal(f.kcal_100g)}/100 g</span>
+                <span className="muted small">{kcalTexto(f)}</span>
               </span>
               <button type="button" className="btn ghost small" aria-label={`Editar ${f.nome}`} onClick={() => setForm({ food: f })}>
                 Editar
@@ -420,12 +476,12 @@ export function MeusAlimentos({ userId }: { userId: string }) {
       {form && (
         <Folha titulo={form.food ? 'Editar alimento' : 'Cadastrar alimento'} onClose={() => setForm(null)}>
           <FormAlimento
-            inicial={form.food ? { nome: form.food.nome, kcal_100g: form.food.kcal_100g } : undefined}
+            inicial={form.food ? { nome: form.food.nome, kcal_100g: form.food.kcal_100g, kcal_unidade: form.food.kcal_unidade } : undefined}
             onCancelar={() => setForm(null)}
-            onSalvar={async (nome, kcal, g) => {
+            onSalvar={async (nome, medida) => {
               try {
-                if (form.food) await al.editar(form.food.id, nome, kcal, g);
-                else await al.cadastrar(nome, kcal, g);
+                if (form.food) await al.editar(form.food.id, nome, medida);
+                else await al.cadastrar(nome, medida);
                 setForm(null);
               } catch {
                 toast('Não foi salvo, tente de novo');

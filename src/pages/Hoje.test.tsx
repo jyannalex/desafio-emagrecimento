@@ -34,7 +34,7 @@ beforeEach(() => {
   vi.mocked(repo.getPhotos).mockResolvedValue([]);
   vi.mocked(repo.photoUrls).mockResolvedValue({});
   URL.createObjectURL = vi.fn(() => 'blob:previa');
-  vi.mocked(repo.getFoods).mockResolvedValue([{ id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, origem: 'taco', criado_por: null }]);
+  vi.mocked(repo.getFoods).mockResolvedValue([{ id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, kcal_unidade: null, origem: 'taco', criado_por: null }]);
   vi.mocked(repo.getMealItems).mockResolvedValue([]);
   vi.mocked(repo.recentFoodIds).mockResolvedValue([]);
   vi.mocked(repo.addMealItem).mockImplementation(async (i) => ({ ...i, id: 77 }));
@@ -56,7 +56,7 @@ test('mostra as tarefas do dia e 0/5', async () => {
 
 test('marcar café (que já tem alimento) soma 1 ponto e grava', async () => {
   vi.mocked(repo.getMealItems).mockResolvedValue([
-    { id: 5, user_id: 'u1', dia: hoje, refeicao: 'cafe', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50 },
+    { id: 5, user_id: 'u1', dia: hoje, refeicao: 'cafe', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50, unidades: null, kcal_unidade: null },
   ]);
   renderHoje(ativo);
   const cafe = await screen.findByLabelText('Café da manhã');
@@ -94,7 +94,7 @@ test('não volta antes do início do desafio nem passa de hoje', async () => {
 
 test('volta um dia e depois escolhe uma data antiga, ambos editáveis', async () => {
   vi.mocked(repo.getMealItems).mockImplementation(async (d) => [
-    { id: 5, user_id: 'u1', dia: d, refeicao: 'cafe', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50 },
+    { id: 5, user_id: 'u1', dia: d, refeicao: 'cafe', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50, unidades: null, kcal_unidade: null },
   ]);
   renderHoje(ativo);
   await userEvent.click(await screen.findByRole('button', { name: 'Dia anterior' }));
@@ -152,7 +152,7 @@ test('atividade soma minutos com botões e pontua só com 1 hora', async () => {
 
 test('lanche grava mas não vale ponto', async () => {
   vi.mocked(repo.getMealItems).mockResolvedValue([
-    { id: 5, user_id: 'u1', dia: hoje, refeicao: 'lanche', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50 },
+    { id: 5, user_id: 'u1', dia: hoje, refeicao: 'lanche', food_id: 1, nome: 'Arroz branco cozido', kcal_100g: 128, gramas: 50, unidades: null, kcal_unidade: null },
   ]);
   renderHoje(ativo);
   const lanche = await screen.findByLabelText('Lanche');
@@ -218,6 +218,8 @@ const item = (over: Partial<MealItem>): MealItem => ({
   nome: 'Arroz branco cozido',
   kcal_100g: 128,
   gramas: 120,
+  unidades: null,
+  kcal_unidade: null,
   ...over,
 });
 

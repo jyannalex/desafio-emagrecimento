@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../components/Toast';
-import { addMealItem, deleteMealItem, getMealItems, updateMealItemGramas } from '../data/repo';
+import { addMealItem, deleteMealItem, getMealItems, updateMealItemQuantidade } from '../data/repo';
 import type { Food, MealItem, Refeicao } from '../types';
 
 const ERRO = 'Não foi salvo, tente de novo';
@@ -36,8 +36,19 @@ export function useItensDia(userId: string, dia: string) {
 
   const adicionar = useCallback(
     /** true se o banco gravou. */
-    async (refeicao: Refeicao, food: Food, gramas: number): Promise<boolean> => {
-      const novo: Omit<MealItem, 'id'> = { user_id: userId, dia, refeicao, food_id: food.id, nome: food.nome, kcal_100g: food.kcal_100g, gramas };
+    async (refeicao: Refeicao, food: Food, qtd: number): Promise<boolean> => {
+      const porUnidade = food.kcal_unidade != null;
+      const novo: Omit<MealItem, 'id'> = {
+        user_id: userId,
+        dia,
+        refeicao,
+        food_id: food.id,
+        nome: food.nome,
+        kcal_100g: porUnidade ? null : food.kcal_100g,
+        gramas: porUnidade ? null : qtd,
+        unidades: porUnidade ? qtd : null,
+        kcal_unidade: porUnidade ? food.kcal_unidade : null,
+      };
       const idTemp = --temp.current;
       setItens((l) => [...l, { ...novo, id: idTemp }]);
       try {
@@ -53,14 +64,21 @@ export function useItensDia(userId: string, dia: string) {
     [userId, dia, toast],
   );
 
-  const mudarGramas = useCallback(
-    async (id: number, gramas: number) => {
-      let antes: number | undefined;
-      setItens((l) => l.map((i) => (i.id === id ? ((antes = i.gramas), { ...i, gramas }) : i)));
+  /** Gramas ou unidades, conforme o jeito de medir do item. */
+  const mudarQuantidade = useCallback(
+    async (id: number, qtd: number) => {
+      let antes: MealItem | undefined;
+      setItens((l) =>
+        l.map((i) => {
+          if (i.id !== id) return i;
+          antes = i;
+          return i.unidades != null ? { ...i, unidades: qtd } : { ...i, gramas: qtd };
+        }),
+      );
       try {
-        await updateMealItemGramas(id, gramas);
+        await updateMealItemQuantidade(id, antes?.unidades != null ? { unidades: qtd } : { gramas: qtd });
       } catch {
-        setItens((l) => l.map((i) => (i.id === id && antes !== undefined ? { ...i, gramas: antes } : i)));
+        setItens((l) => l.map((i) => (i.id === id && antes ? antes : i)));
         toast(ERRO);
       }
     },
@@ -88,5 +106,5 @@ export function useItensDia(userId: string, dia: string) {
     [toast],
   );
 
-  return { itens, carregado, erro, recarregar, adicionar, mudarGramas, remover };
+  return { itens, carregado, erro, recarregar, adicionar, mudarQuantidade, remover };
 }
